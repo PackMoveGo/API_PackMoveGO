@@ -8,6 +8,10 @@ export interface IUserData {
   phone: string;
 }
 
+interface MongoError extends Error {
+  code?: number;
+}
+
 export const createUser = async (userData: IUserData) => {
   try {
     console.log('Attempting to create user with email:', userData.email);
@@ -27,7 +31,9 @@ export const createUser = async (userData: IUserData) => {
     if (error instanceof mongoose.Error.ValidationError) {
       throw error;
     }
-    if (error instanceof mongoose.Error.DuplicateKeyError) {
+    // Check for duplicate key error (MongoDB error code 11000)
+    const mongoError = error as MongoError;
+    if (mongoError.code === 11000) {
       throw new Error('Email already registered');
     }
     throw new Error('Error creating user');

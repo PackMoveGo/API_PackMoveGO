@@ -18,7 +18,11 @@ export const connectDB = async () => {
     await mongoose.connect(MONGODB_URI, {
       dbName: 'packgomove', // Explicitly set the database name
       retryWrites: true,
-      w: 'majority'
+      w: 'majority',
+      maxPoolSize: 10, // Maximum number of connections in the pool
+      minPoolSize: 5,  // Minimum number of connections in the pool
+      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+      family: 4 // Use IPv4, skip trying IPv6
     });
     console.log('MongoDB connected successfully to packgomove database');
 
