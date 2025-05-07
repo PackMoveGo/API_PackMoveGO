@@ -22,17 +22,4 @@ services:
         sync: false
     healthCheckPath: /api/health
     autoDeploy: true
-    plan: free
-
-  - type: web
-    name: pack-go-movers-client
-    env: node
-    buildCommand: cd client && npm install && npm run build
-    startCommand: cd client && npm run preview
-    envVars:
-      - key: VITE_API_URL
-        value: https://pack-go-movers-api.onrender.com
-      - key: VITE_APP_NAME
-        value: "Pack Go Movers"
-      - key: VITE_APP_DOMAIN
-        value: "packgomovers.com" 
+    plan: free 
