@@ -7,6 +7,7 @@ import securityRoutes from './route/securityRoutes';
 import dotenv from 'dotenv';
 import path from 'path';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
+import { vercelIpWhitelist } from './middleware/ipWhitelist';
 
 dotenv.config();
 
@@ -33,6 +34,9 @@ const corsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
+
+// Apply IP whitelist middleware to all API routes
+app.use('/api', vercelIpWhitelist);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -76,17 +80,13 @@ if (isDevelopment) {
 
   app.use('/', createProxyMiddleware(proxyOptions) as RequestHandler);
 } else {
-  // Production mode: Serve static files
-  app.use(express.static(path.join(__dirname)));
-  
-  // Handle client-side routing
-  app.get('*', (req, res, next) => {
-    // Don't handle API routes
-    if (req.path.startsWith('/api/')) {
-      return next();
-    }
-    // Serve index.html for all other routes
-    res.sendFile(path.join(__dirname, 'index.html'));
+  // Production mode: API server only
+  app.get('/', (req, res) => {
+    res.json({
+      message: 'Welcome to PackMoveGO API',
+      version: '1.0.0',
+      status: 'running'
+    });
   });
 }
 
