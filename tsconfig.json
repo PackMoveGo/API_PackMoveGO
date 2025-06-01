@@ -11,11 +11,12 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "baseUrl": ".",
+    "baseUrl": "./src",
     "paths": {
-      "*": ["node_modules/*"]
+      "*": ["node_modules/*"],
+      "@util/*": ["util/*"]
     }
   },
-  "include": ["src/server.ts", "src/route/**/*", "src/controller/**/*", "src/service/**/*", "src/model/**/*"],
+  "include": ["src/server.ts", "src/route/**/*", "src/controller/**/*", "src/service/**/*", "src/model/**/*", "src/util/**/*"],
   "exclude": ["node_modules", "dist", "src/components", "src/staticpage", "src/App.tsx"]
 } 
