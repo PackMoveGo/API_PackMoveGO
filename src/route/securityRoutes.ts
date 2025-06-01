@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
-import { debug } from '@util/debug';
+import { debug } from '../util/debug';
 
 const router = express.Router();
 

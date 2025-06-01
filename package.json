@@ -4,7 +4,7 @@
   "description": "Backend for Pack Go Movers",
   "main": "src/server.ts",
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "node -r tsconfig-paths/register dist/server.js",
     "dev": "nodemon src/server.ts",
     "build": "tsc",
     "postinstall": "npm run build"
@@ -28,7 +28,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.1.1",
     "nodemailer": "^6.9.9",
-    "stripe": "^14.14.0"
+    "stripe": "^14.14.0",
+    "tsconfig-paths": "^4.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3",
