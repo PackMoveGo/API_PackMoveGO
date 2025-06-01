@@ -28,7 +28,13 @@ const securityHeaders = helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://*.vercel.app", "https://pack-go-movers-backend.onrender.com"],
+      connectSrc: [
+        "'self'",
+        "https://*.vercel.app",
+        "https://pack-go-movers-backend.onrender.com",
+        "https://www.packmovego.com",
+        "https://packmovego.com"
+      ],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],

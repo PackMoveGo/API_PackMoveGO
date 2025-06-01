@@ -266,11 +266,17 @@ export const vercelIpWhitelist = (req: Request, res: Response, next: NextFunctio
     return next();
   }
 
+  // Allow requests from the frontend domain
+  const origin = req.headers.origin;
+  if (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com') {
+    return next();
+  }
+
   // Check if the IP is in the Vercel IP ranges
   const isAllowed = VERCEL_IP_RANGES.some(range => isIpInRange(clientIp, range));
 
   if (!isAllowed) {
-    console.warn(`Blocked request from unauthorized IP: ${clientIp}`);
+    console.warn(`Blocked request from unauthorized IP: ${clientIp}, Origin: ${origin}`);
     return res.status(403).json({
       success: false,
       message: 'Access denied: Unauthorized IP address'
