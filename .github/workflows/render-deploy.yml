@@ -27,7 +27,8 @@ jobs:
       - name: Deploy to Render
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: d0drp3h5pdvs73f64p70
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          NODE_ENV: 'production'
         run: |
           curl -X POST "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
           -H "Authorization: Bearer $RENDER_API_KEY" \
