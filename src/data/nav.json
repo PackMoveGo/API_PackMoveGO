@@ -1,0 +1,40 @@
+{
+  "mainNav": [
+    {
+      "path": "/",
+      "label": "Home"
+    },
+    {
+      "path": "/about",
+      "label": "About Us"
+    },
+    {
+      "path": "/services",
+      "label": "Services"
+    },
+    {
+      "path": "/supplies",
+      "label": "Supplies"
+    },
+    {
+      "path": "/locations",
+      "label": "Locations"
+    },
+    {
+      "path": "/review",
+      "label": "Review"
+    },
+    {
+      "path": "/blog",
+      "label": "Blog"
+    },
+    {
+      "path": "/refer",
+      "label": "Refer Friends"
+    },
+    {
+      "path": "/contact",
+      "label": "Contact"
+    }
+  ]
+} 

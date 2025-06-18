@@ -1,0 +1,219 @@
+{
+  "supplies": [
+    {
+      "id": "boxes",
+      "category": "Packing Boxes",
+      "icon": "📦",
+      "items": [
+        {
+          "id": "small-box",
+          "name": "Small Box (1.5 cu ft)",
+          "description": "Perfect for books, small electronics, and heavy items",
+          "dimensions": "16\" x 12\" x 12\"",
+          "price": 2.50,
+          "inStock": true,
+          "popular": true
+        },
+        {
+          "id": "medium-box",
+          "name": "Medium Box (3.0 cu ft)",
+          "description": "Ideal for kitchen items, clothing, and general household goods",
+          "dimensions": "18\" x 14\" x 12\"",
+          "price": 3.50,
+          "inStock": true,
+          "popular": true
+        },
+        {
+          "id": "large-box",
+          "name": "Large Box (4.5 cu ft)",
+          "description": "Great for bedding, pillows, and lightweight bulky items",
+          "dimensions": "20\" x 20\" x 15\"",
+          "price": 4.50,
+          "inStock": true,
+          "popular": false
+        },
+        {
+          "id": "wardrobe-box",
+          "name": "Wardrobe Box",
+          "description": "Hanging clothes box with built-in hanging bar",
+          "dimensions": "24\" x 21\" x 46\"",
+          "price": 12.00,
+          "inStock": true,
+          "popular": true
+        },
+        {
+          "id": "dish-pack",
+          "name": "Dish Pack Box",
+          "description": "Heavy-duty box with dividers for dishes and glassware",
+          "dimensions": "18\" x 18\" x 28\"",
+          "price": 8.00,
+          "inStock": true,
+          "popular": false
+        }
+      ]
+    },
+    {
+      "id": "packing-materials",
+      "category": "Packing Materials",
+      "icon": "🧱",
+      "items": [
+        {
+          "id": "bubble-wrap",
+          "name": "Bubble Wrap Roll",
+          "description": "12\" x 50' roll for protecting fragile items",
+          "size": "12\" x 50'",
+          "price": 8.00,
+          "inStock": true,
+          "popular": true
+        },
+        {
+          "id": "packing-paper",
+          "name": "Packing Paper",
+          "description": "Clean, unprinted paper for wrapping and cushioning",
+          "size": "24\" x 36\" (50 sheets)",
+          "price": 5.00,
+          "inStock": true,
+          "popular": true
+        },
+        {
+          "id": "foam-sheets",
+          "name": "Foam Sheets",
+          "description": "Protective foam for delicate items and furniture",
+          "size": "24\" x 48\" (10 sheets)",
+          "price": 15.00,
+          "inStock": true,
+          "popular": false
+        },
+        {
+          "id": "furniture-pads",
+          "name": "Furniture Pads",
+          "description": "Heavy-duty pads for protecting furniture during moves",
+          "size": "72\" x 80\"",
+          "price": 12.00,
+          "inStock": true,
+          "popular": true
+        }
+      ]
+    },
+    {
+      "id": "tape-tools",
+      "category": "Tape & Tools",
+      "icon": "🔧",
+      "items": [
+        {
+          "id": "packing-tape",
+          "name": "Packing Tape",
+          "description": "Heavy-duty adhesive tape for sealing boxes",
+          "size": "2\" x 60 yards",
+          "price": 4.00,
+          "inStock": true,
+          "popular": true
+        },
+        {
+          "id": "tape-dispenser",
+          "name": "Tape Dispenser",
+          "description": "Professional tape dispenser for easy application",
+          "size": "Standard",
+          "price": 6.00,
+          "inStock": true,
+          "popular": false
+        },
+        {
+          "id": "markers",
+          "name": "Permanent Markers",
+          "description": "Black permanent markers for labeling boxes",
+          "size": "Pack of 3",
+          "price": 3.00,
+          "inStock": true,
+          "popular": true
+        },
+        {
+          "id": "box-cutter",
+          "name": "Box Cutter",
+          "description": "Retractable utility knife for opening boxes",
+          "size": "Standard",
+          "price": 5.00,
+          "inStock": true,
+          "popular": false
+        }
+      ]
+    },
+    {
+      "id": "specialty",
+      "category": "Specialty Items",
+      "icon": "⭐",
+      "items": [
+        {
+          "id": "mattress-bag",
+          "name": "Mattress Bag",
+          "description": "Plastic bag to protect mattresses during transport",
+          "size": "Twin to King",
+          "price": 8.00,
+          "inStock": true,
+          "popular": true
+        },
+        {
+          "id": "mirror-box",
+          "name": "Mirror Box",
+          "description": "Specialized box for mirrors and picture frames",
+          "size": "Various sizes",
+          "price": 10.00,
+          "inStock": true,
+          "popular": false
+        },
+        {
+          "id": "lamp-box",
+          "name": "Lamp Box",
+          "description": "Tall box designed specifically for lamps",
+          "size": "8\" x 8\" x 36\"",
+          "price": 6.00,
+          "inStock": true,
+          "popular": false
+        },
+        {
+          "id": "tv-box",
+          "name": "TV Box",
+          "description": "Heavy-duty box for flat-screen TVs",
+          "size": "32\" - 65\" screens",
+          "price": 15.00,
+          "inStock": true,
+          "popular": true
+        }
+      ]
+    },
+    {
+      "id": "bundles",
+      "category": "Moving Kits",
+      "icon": "📋",
+      "items": [
+        {
+          "id": "starter-kit",
+          "name": "Starter Packing Kit",
+          "description": "Basic supplies for small moves: 5 boxes, tape, markers, paper",
+          "contents": "5 boxes, 1 tape, 1 marker, 1 paper pack",
+          "price": 25.00,
+          "inStock": true,
+          "popular": true
+        },
+        {
+          "id": "complete-kit",
+          "name": "Complete Moving Kit",
+          "description": "Everything needed for a 2-3 bedroom move",
+          "contents": "20 boxes, 2 tape, 2 markers, 2 paper packs, bubble wrap",
+          "price": 85.00,
+          "inStock": true,
+          "popular": true
+        },
+        {
+          "id": "fragile-kit",
+          "name": "Fragile Items Kit",
+          "description": "Specialized protection for breakable items",
+          "contents": "Bubble wrap, foam sheets, dish pack box, mirror box",
+          "price": 35.00,
+          "inStock": true,
+          "popular": false
+        }
+      ]
+    }
+  ]
+} 

@@ -21,45 +21,62 @@ const apiLimiter = rateLimit({
 });
 
 // Security headers configuration
-const securityHeaders = helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: [
-        "'self'",
-        "https://*.vercel.app",
-        "https://pack-go-movers-backend.onrender.com",
-        "https://www.packmovego.com",
-        "https://packmovego.com"
-      ],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
-      upgradeInsecureRequests: []
-    }
-  },
-  crossOriginEmbedderPolicy: true,
-  crossOriginOpenerPolicy: true,
-  crossOriginResourcePolicy: { policy: "same-site" },
-  dnsPrefetchControl: { allow: false },
-  frameguard: { action: "deny" },
-  hidePoweredBy: true,
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  },
-  ieNoOpen: true,
-  noSniff: true,
-  originAgentCluster: true,
-  permittedCrossDomainPolicies: { permittedPolicies: "none" },
-  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-  xssFilter: true
-});
+const securityHeaders = process.env.NODE_ENV === 'development' 
+  ? helmet({
+      contentSecurityPolicy: false, // Disable CSP in development
+      crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: false,
+      dnsPrefetchControl: { allow: false },
+      frameguard: { action: "deny" },
+      hidePoweredBy: true,
+      hsts: false, // Disable HSTS in development
+      ieNoOpen: true,
+      noSniff: true,
+      originAgentCluster: false,
+      permittedCrossDomainPolicies: { permittedPolicies: "none" },
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+      xssFilter: true
+    })
+  : helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https:"],
+          connectSrc: [
+            "'self'",
+            "https://*.vercel.app",
+            "https://pack-go-movers-backend.onrender.com",
+            "https://www.packmovego.com",
+            "https://packmovego.com"
+          ],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"],
+          upgradeInsecureRequests: []
+        }
+      },
+      crossOriginEmbedderPolicy: true,
+      crossOriginOpenerPolicy: true,
+      crossOriginResourcePolicy: { policy: "same-site" },
+      dnsPrefetchControl: { allow: false },
+      frameguard: { action: "deny" },
+      hidePoweredBy: true,
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true
+      },
+      ieNoOpen: true,
+      noSniff: true,
+      originAgentCluster: true,
+      permittedCrossDomainPolicies: { permittedPolicies: "none" },
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+      xssFilter: true
+    });
 
 // Request validation middleware
 const validateRequest = (req: Request, res: Response, next: NextFunction) => {

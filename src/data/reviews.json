@@ -1,0 +1,181 @@
+{
+  "reviews": [
+    {
+      "id": 1,
+      "customerName": "Sarah Johnson",
+      "location": "Anaheim, CA",
+      "rating": 5,
+      "date": "2024-01-15",
+      "service": "Residential Moving",
+      "title": "Exceptional Service - Made My Move Stress-Free",
+      "content": "Pack Move Go exceeded all my expectations! The team was professional, efficient, and handled my belongings with incredible care. They arrived on time, worked quickly, and made the entire process completely stress-free. I would highly recommend them to anyone looking for reliable movers.",
+      "verified": true,
+      "helpful": 12,
+      "images": ["/images/reviews/sarah-move.jpg"],
+      "tags": ["Professional", "Efficient", "Careful", "On Time"]
+    },
+    {
+      "id": 2,
+      "customerName": "Michael Chen",
+      "location": "Irvine, CA",
+      "rating": 5,
+      "date": "2024-01-10",
+      "service": "Commercial Moving",
+      "title": "Outstanding Office Relocation Service",
+      "content": "As a business owner, I needed a reliable moving service for our office relocation. Pack Move Go was exceptional from start to finish. They handled our sensitive equipment with care, completed the move ahead of schedule, and minimized our business downtime. Highly professional team!",
+      "verified": true,
+      "helpful": 8,
+      "images": ["/images/reviews/michael-office.jpg"],
+      "tags": ["Business", "Professional", "Fast", "Reliable"]
+    },
+    {
+      "id": 3,
+      "customerName": "Emily Rodriguez",
+      "location": "Santa Ana, CA",
+      "rating": 5,
+      "date": "2024-01-08",
+      "service": "Packing Services",
+      "title": "Amazing Packing Service - Everything Arrived Perfectly",
+      "content": "The packing service was incredible! They carefully wrapped and packed all my fragile items, and everything arrived at my new home in perfect condition. The team was friendly and professional throughout the entire process. I'm so grateful for their attention to detail.",
+      "verified": true,
+      "helpful": 15,
+      "images": ["/images/reviews/emily-packing.jpg"],
+      "tags": ["Careful", "Fragile Items", "Friendly", "Professional"]
+    },
+    {
+      "id": 4,
+      "customerName": "David Thompson",
+      "location": "Huntington Beach, CA",
+      "rating": 5,
+      "date": "2024-01-05",
+      "service": "Residential Moving",
+      "title": "Best Moving Experience Ever",
+      "content": "I've moved several times in my life, and this was by far the best experience. The crew was professional, courteous, and extremely efficient. They handled my antique furniture with the utmost care and completed the move in record time. I couldn't be happier!",
+      "verified": true,
+      "helpful": 20,
+      "images": ["/images/reviews/david-antiques.jpg"],
+      "tags": ["Antiques", "Efficient", "Courteous", "Fast"]
+    },
+    {
+      "id": 5,
+      "customerName": "Lisa Wang",
+      "location": "Fullerton, CA",
+      "rating": 5,
+      "date": "2024-01-03",
+      "service": "Furniture Assembly",
+      "title": "Excellent Furniture Assembly Service",
+      "content": "The furniture assembly service was outstanding! They assembled all my new furniture quickly and correctly. The team was knowledgeable and made sure everything was properly secured. I'm very impressed with their workmanship and professionalism.",
+      "verified": true,
+      "helpful": 6,
+      "images": ["/images/reviews/lisa-furniture.jpg"],
+      "tags": ["Assembly", "Knowledgeable", "Professional", "Fast"]
+    },
+    {
+      "id": 6,
+      "customerName": "Robert Martinez",
+      "location": "Costa Mesa, CA",
+      "rating": 5,
+      "date": "2023-12-28",
+      "service": "Residential Moving",
+      "title": "Reliable and Professional Moving Service",
+      "content": "Pack Move Go provided excellent service for our family move. They were punctual, professional, and handled everything with care. The team worked efficiently and made sure all our belongings were safely transported. I highly recommend their services!",
+      "verified": true,
+      "helpful": 11,
+      "images": ["/images/reviews/robert-family.jpg"],
+      "tags": ["Family", "Punctual", "Safe", "Efficient"]
+    },
+    {
+      "id": 7,
+      "customerName": "Jennifer Lee",
+      "location": "Newport Beach, CA",
+      "rating": 5,
+      "date": "2023-12-25",
+      "service": "Packing Services",
+      "title": "Outstanding Packing and Moving Experience",
+      "content": "The packing and moving service was exceptional! They carefully packed all my belongings, especially my valuable artwork and antiques. The team was professional, friendly, and made the entire process smooth and stress-free. I'm extremely satisfied!",
+      "verified": true,
+      "helpful": 9,
+      "images": ["/images/reviews/jennifer-artwork.jpg"],
+      "tags": ["Artwork", "Antiques", "Valuable Items", "Stress-Free"]
+    },
+    {
+      "id": 8,
+      "customerName": "Thomas Anderson",
+      "location": "Tustin, CA",
+      "rating": 5,
+      "date": "2023-12-20",
+      "service": "Commercial Moving",
+      "title": "Professional Business Relocation Service",
+      "content": "We used Pack Move Go for our business relocation and couldn't be more pleased. They handled our office equipment and furniture with care, completed the move efficiently, and minimized our business disruption. Highly recommended for commercial moves!",
+      "verified": true,
+      "helpful": 7,
+      "images": ["/images/reviews/thomas-business.jpg"],
+      "tags": ["Business", "Equipment", "Efficient", "Minimal Disruption"]
+    },
+    {
+      "id": 9,
+      "customerName": "Amanda Foster",
+      "location": "Yorba Linda, CA",
+      "rating": 5,
+      "date": "2023-12-18",
+      "service": "Residential Moving",
+      "title": "Fantastic Moving Experience",
+      "content": "Pack Move Go made our move absolutely fantastic! The team was professional, efficient, and incredibly careful with our belongings. They completed the move quickly and everything arrived in perfect condition. I would definitely use them again!",
+      "verified": true,
+      "helpful": 13,
+      "images": ["/images/reviews/amanda-perfect.jpg"],
+      "tags": ["Fantastic", "Quick", "Perfect Condition", "Professional"]
+    },
+    {
+      "id": 10,
+      "customerName": "Christopher Brown",
+      "location": "Mission Viejo, CA",
+      "rating": 5,
+      "date": "2023-12-15",
+      "service": "Furniture Assembly",
+      "title": "Excellent Assembly and Moving Service",
+      "content": "The furniture assembly service was top-notch! They assembled all our new furniture quickly and correctly. The team was professional, knowledgeable, and made sure everything was properly installed. I'm very happy with their service!",
+      "verified": true,
+      "helpful": 5,
+      "images": ["/images/reviews/christopher-assembly.jpg"],
+      "tags": ["Assembly", "Top-Notch", "Knowledgeable", "Proper Installation"]
+    }
+  ],
+  "stats": {
+    "averageRating": 5.0,
+    "totalReviews": 10,
+    "fiveStarReviews": 10,
+    "fourStarReviews": 0,
+    "threeStarReviews": 0,
+    "twoStarReviews": 0,
+    "oneStarReviews": 0,
+    "verifiedReviews": 10,
+    "totalHelpful": 106
+  },
+  "services": [
+    {
+      "id": "residential",
+      "name": "Residential Moving",
+      "averageRating": 5.0,
+      "reviewCount": 5
+    },
+    {
+      "id": "commercial",
+      "name": "Commercial Moving",
+      "averageRating": 5.0,
+      "reviewCount": 2
+    },
+    {
+      "id": "packing",
+      "name": "Packing Services",
+      "averageRating": 5.0,
+      "reviewCount": 2
+    },
+    {
+      "id": "assembly",
+      "name": "Furniture Assembly",
+      "averageRating": 5.0,
+      "reviewCount": 2
+    }
+  ]
+} 

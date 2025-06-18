@@ -1,0 +1,249 @@
+{
+  "contactInfo": {
+    "title": "Get in Touch",
+    "description": "Ready to start your stress-free move? Contact us today for a free quote and professional moving services.",
+    "mainPhone": "+1 (714) 555-0123",
+    "mainEmail": "info@packmovego.com",
+    "emergencyPhone": "+1 (714) 555-0124",
+    "website": "https://packmovego.com"
+  },
+  "officeLocations": [
+    {
+      "id": 1,
+      "name": "Anaheim Office",
+      "type": "Main Office",
+      "address": {
+        "street": "1234 Moving Way",
+        "city": "Anaheim",
+        "state": "CA",
+        "zip": "92801",
+        "fullAddress": "1234 Moving Way, Anaheim, CA 92801"
+      },
+      "phone": "+1 (714) 555-0123",
+      "email": "anaheim@packmovego.com",
+      "hours": {
+        "monday": "8:00 AM - 6:00 PM",
+        "tuesday": "8:00 AM - 6:00 PM",
+        "wednesday": "8:00 AM - 6:00 PM",
+        "thursday": "8:00 AM - 6:00 PM",
+        "friday": "8:00 AM - 6:00 PM",
+        "saturday": "9:00 AM - 4:00 PM",
+        "sunday": "Closed"
+      },
+      "services": ["Residential Moving", "Commercial Moving", "Packing Services", "Storage Solutions"],
+      "coordinates": {
+        "lat": 33.8366,
+        "lng": -117.9143
+      }
+    },
+    {
+      "id": 2,
+      "name": "Irvine Office",
+      "type": "Service Center",
+      "address": {
+        "street": "5678 Business Blvd",
+        "city": "Irvine",
+        "state": "CA",
+        "zip": "92618",
+        "fullAddress": "5678 Business Blvd, Irvine, CA 92618"
+      },
+      "phone": "+1 (949) 555-0125",
+      "email": "irvine@packmovego.com",
+      "hours": {
+        "monday": "8:00 AM - 6:00 PM",
+        "tuesday": "8:00 AM - 6:00 PM",
+        "wednesday": "8:00 AM - 6:00 PM",
+        "thursday": "8:00 AM - 6:00 PM",
+        "friday": "8:00 AM - 6:00 PM",
+        "saturday": "9:00 AM - 4:00 PM",
+        "sunday": "Closed"
+      },
+      "services": ["Residential Moving", "Commercial Moving", "Packing Services"],
+      "coordinates": {
+        "lat": 33.6846,
+        "lng": -117.8265
+      }
+    },
+    {
+      "id": 3,
+      "name": "Santa Ana Office",
+      "type": "Service Center",
+      "address": {
+        "street": "9012 Orange Ave",
+        "city": "Santa Ana",
+        "state": "CA",
+        "zip": "92701",
+        "fullAddress": "9012 Orange Ave, Santa Ana, CA 92701"
+      },
+      "phone": "+1 (714) 555-0126",
+      "email": "santaan@packmovego.com",
+      "hours": {
+        "monday": "8:00 AM - 6:00 PM",
+        "tuesday": "8:00 AM - 6:00 PM",
+        "wednesday": "8:00 AM - 6:00 PM",
+        "thursday": "8:00 AM - 6:00 PM",
+        "friday": "8:00 AM - 6:00 PM",
+        "saturday": "9:00 AM - 4:00 PM",
+        "sunday": "Closed"
+      },
+      "services": ["Residential Moving", "Packing Services", "Storage Solutions"],
+      "coordinates": {
+        "lat": 33.7455,
+        "lng": -117.8677
+      }
+    }
+  ],
+  "contactMethods": [
+    {
+      "id": 1,
+      "title": "Phone Support",
+      "description": "Speak directly with our moving experts",
+      "icon": "📞",
+      "primary": "+1 (714) 555-0123",
+      "secondary": "+1 (714) 555-0124 (Emergency)",
+      "hours": "Mon-Fri: 8AM-6PM, Sat: 9AM-4PM",
+      "color": "bg-blue-500"
+    },
+    {
+      "id": 2,
+      "title": "Email Support",
+      "description": "Send us a detailed message anytime",
+      "icon": "✉️",
+      "primary": "info@packmovego.com",
+      "secondary": "support@packmovego.com",
+      "hours": "24/7 - Response within 2 hours",
+      "color": "bg-green-500"
+    },
+    {
+      "id": 3,
+      "title": "Live Chat",
+      "description": "Get instant answers to your questions",
+      "icon": "💬",
+      "primary": "Available on website",
+      "secondary": "Mobile app chat support",
+      "hours": "Mon-Fri: 8AM-8PM, Sat: 9AM-5PM",
+      "color": "bg-purple-500"
+    },
+    {
+      "id": 4,
+      "title": "Social Media",
+      "description": "Connect with us on your favorite platforms",
+      "icon": "📱",
+      "primary": "@packmovego",
+      "secondary": "Facebook, Instagram, Twitter",
+      "hours": "24/7 - Response within 4 hours",
+      "color": "bg-pink-500"
+    }
+  ],
+  "contactForm": {
+    "title": "Send Us a Message",
+    "description": "Fill out the form below and we'll get back to you within 2 hours.",
+    "fields": [
+      {
+        "name": "firstName",
+        "label": "First Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "Enter your first name"
+      },
+      {
+        "name": "lastName",
+        "label": "Last Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "Enter your last name"
+      },
+      {
+        "name": "email",
+        "label": "Email Address",
+        "type": "email",
+        "required": true,
+        "placeholder": "Enter your email address"
+      },
+      {
+        "name": "phone",
+        "label": "Phone Number",
+        "type": "tel",
+        "required": false,
+        "placeholder": "Enter your phone number (optional)"
+      },
+      {
+        "name": "moveDate",
+        "label": "Preferred Move Date",
+        "type": "date",
+        "required": false,
+        "placeholder": "Select your preferred move date"
+      },
+      {
+        "name": "serviceType",
+        "label": "Service Type",
+        "type": "select",
+        "required": true,
+        "placeholder": "Select a service type",
+        "options": [
+          { "value": "", "label": "Select a service type" },
+          { "value": "residential", "label": "Residential Moving" },
+          { "value": "commercial", "label": "Commercial Moving" },
+          { "value": "packing", "label": "Packing Services" },
+          { "value": "storage", "label": "Storage Solutions" },
+          { "value": "supplies", "label": "Moving Supplies" },
+          { "value": "other", "label": "Other Services" }
+        ]
+      },
+      {
+        "name": "subject",
+        "label": "Subject",
+        "type": "text",
+        "required": true,
+        "placeholder": "Brief description of your inquiry"
+      },
+      {
+        "name": "message",
+        "label": "Message",
+        "type": "textarea",
+        "required": true,
+        "placeholder": "Tell us more about your moving needs..."
+      }
+    ]
+  },
+  "faq": [
+    {
+      "question": "What areas do you serve?",
+      "answer": "We serve all of Orange County and surrounding areas including Los Angeles, Riverside, and San Bernardino counties. Our main service areas include Anaheim, Irvine, Santa Ana, Newport Beach, Huntington Beach, and more."
+    },
+    {
+      "question": "How far in advance should I book my move?",
+      "answer": "We recommend booking at least 2-3 weeks in advance for residential moves and 4-6 weeks for commercial moves. However, we can accommodate last-minute moves based on availability."
+    },
+    {
+      "question": "Do you provide packing materials?",
+      "answer": "Yes, we offer a full range of packing materials including boxes, tape, bubble wrap, and specialty items. You can purchase these separately or as part of our packing service."
+    },
+    {
+      "question": "Are you licensed and insured?",
+      "answer": "Absolutely! We are fully licensed, bonded, and insured. Our insurance covers your belongings during the entire moving process, giving you peace of mind."
+    },
+    {
+      "question": "What payment methods do you accept?",
+      "answer": "We accept all major credit cards, cash, and bank transfers. Payment is typically due upon completion of the move, though we may require a deposit for large moves."
+    },
+    {
+      "question": "Do you offer storage solutions?",
+      "answer": "Yes, we offer both short-term and long-term storage solutions. Our climate-controlled facilities are secure and accessible 24/7 for your convenience."
+    }
+  ],
+  "businessHours": {
+    "title": "Business Hours",
+    "description": "Our customer service team is available to help you during these hours:",
+    "hours": {
+      "monday": { "open": "8:00 AM", "close": "6:00 PM", "status": "open" },
+      "tuesday": { "open": "8:00 AM", "close": "6:00 PM", "status": "open" },
+      "wednesday": { "open": "8:00 AM", "close": "6:00 PM", "status": "open" },
+      "thursday": { "open": "8:00 AM", "close": "6:00 PM", "status": "open" },
+      "friday": { "open": "8:00 AM", "close": "6:00 PM", "status": "open" },
+      "saturday": { "open": "9:00 AM", "close": "4:00 PM", "status": "open" },
+      "sunday": { "open": "Closed", "close": "Closed", "status": "closed" }
+    },
+    "emergency": "For emergency moves outside business hours, call our 24/7 emergency line: +1 (714) 555-0124"
+  }
+} 

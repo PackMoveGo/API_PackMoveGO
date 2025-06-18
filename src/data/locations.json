@@ -1,0 +1,209 @@
+{
+  "locations": [
+    {
+      "id": "orange-county",
+      "region": "Orange County",
+      "icon": "🌴",
+      "description": "Full-service moving and packing throughout Orange County",
+      "cities": [
+        {
+          "name": "Anaheim",
+          "county": "Orange",
+          "population": "346,824",
+          "services": ["Residential Moving", "Commercial Moving", "Packing Services", "Furniture Assembly"],
+          "popular": true
+        },
+        {
+          "name": "Santa Ana",
+          "county": "Orange",
+          "population": "310,227",
+          "services": ["Residential Moving", "Commercial Moving", "Packing Services"],
+          "popular": true
+        },
+        {
+          "name": "Irvine",
+          "county": "Orange",
+          "population": "307,670",
+          "services": ["Residential Moving", "Commercial Moving", "Packing Services", "Furniture Assembly"],
+          "popular": true
+        },
+        {
+          "name": "Huntington Beach",
+          "county": "Orange",
+          "population": "198,711",
+          "services": ["Residential Moving", "Packing Services"],
+          "popular": false
+        },
+        {
+          "name": "Garden Grove",
+          "county": "Orange",
+          "population": "171,949",
+          "services": ["Residential Moving", "Commercial Moving", "Packing Services"],
+          "popular": false
+        },
+        {
+          "name": "Fullerton",
+          "county": "Orange",
+          "population": "135,161",
+          "services": ["Residential Moving", "Packing Services", "Furniture Assembly"],
+          "popular": false
+        },
+        {
+          "name": "Costa Mesa",
+          "county": "Orange",
+          "population": "111,918",
+          "services": ["Residential Moving", "Commercial Moving", "Packing Services"],
+          "popular": false
+        },
+        {
+          "name": "Newport Beach",
+          "county": "Orange",
+          "population": "85,239",
+          "services": ["Residential Moving", "Packing Services"],
+          "popular": false
+        },
+        {
+          "name": "Tustin",
+          "county": "Orange",
+          "population": "78,280",
+          "services": ["Residential Moving", "Packing Services", "Furniture Assembly"],
+          "popular": false
+        },
+        {
+          "name": "Yorba Linda",
+          "county": "Orange",
+          "population": "68,336",
+          "services": ["Residential Moving", "Packing Services"],
+          "popular": false
+        },
+        {
+          "name": "Mission Viejo",
+          "county": "Orange",
+          "population": "93,305",
+          "services": ["Residential Moving", "Packing Services"],
+          "popular": false
+        },
+        {
+          "name": "Brea",
+          "county": "Orange",
+          "population": "47,325",
+          "services": ["Residential Moving", "Packing Services", "Furniture Assembly"],
+          "popular": false
+        }
+      ]
+    },
+    {
+      "id": "los-angeles-county",
+      "region": "Los Angeles County",
+      "icon": "🌆",
+      "description": "Extended service area into Los Angeles County",
+      "cities": [
+        {
+          "name": "Long Beach",
+          "county": "Los Angeles",
+          "population": "466,742",
+          "services": ["Residential Moving", "Commercial Moving", "Packing Services"],
+          "popular": true
+        },
+        {
+          "name": "Torrance",
+          "county": "Los Angeles",
+          "population": "147,067",
+          "services": ["Residential Moving", "Packing Services"],
+          "popular": false
+        },
+        {
+          "name": "Redondo Beach",
+          "county": "Los Angeles",
+          "population": "66,748",
+          "services": ["Residential Moving", "Packing Services"],
+          "popular": false
+        },
+        {
+          "name": "Manhattan Beach",
+          "county": "Los Angeles",
+          "population": "35,506",
+          "services": ["Residential Moving", "Packing Services"],
+          "popular": false
+        }
+      ]
+    },
+    {
+      "id": "riverside-county",
+      "region": "Riverside County",
+      "icon": "🏔️",
+      "description": "Service coverage in Riverside County",
+      "cities": [
+        {
+          "name": "Corona",
+          "county": "Riverside",
+          "population": "169,868",
+          "services": ["Residential Moving", "Packing Services"],
+          "popular": false
+        },
+        {
+          "name": "Riverside",
+          "county": "Riverside",
+          "population": "314,998",
+          "services": ["Residential Moving", "Commercial Moving", "Packing Services"],
+          "popular": false
+        },
+        {
+          "name": "Moreno Valley",
+          "county": "Riverside",
+          "population": "208,634",
+          "services": ["Residential Moving", "Packing Services"],
+          "popular": false
+        }
+      ]
+    },
+    {
+      "id": "san-bernardino-county",
+      "region": "San Bernardino County",
+      "icon": "🏔️",
+      "description": "Limited service area in San Bernardino County",
+      "cities": [
+        {
+          "name": "Chino",
+          "county": "San Bernardino",
+          "population": "91,403",
+          "services": ["Residential Moving", "Packing Services"],
+          "popular": false
+        },
+        {
+          "name": "Chino Hills",
+          "county": "San Bernardino",
+          "population": "78,411",
+          "services": ["Residential Moving", "Packing Services"],
+          "popular": false
+        }
+      ]
+    }
+  ],
+  "serviceTypes": [
+    {
+      "id": "residential",
+      "name": "Residential Moving",
+      "description": "Complete home moving services for apartments, condos, and houses",
+      "icon": "🏠"
+    },
+    {
+      "id": "commercial",
+      "name": "Commercial Moving",
+      "description": "Office and business relocation services",
+      "icon": "🏢"
+    },
+    {
+      "id": "packing",
+      "name": "Packing Services",
+      "description": "Professional packing and unpacking services",
+      "icon": "📦"
+    },
+    {
+      "id": "assembly",
+      "name": "Furniture Assembly",
+      "description": "Furniture assembly and disassembly services",
+      "icon": "🪑"
+    }
+  ]
+} 

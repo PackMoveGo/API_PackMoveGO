@@ -1,0 +1,67 @@
+{
+  "services": [
+    {
+      "id": "house-mover",
+      "icon": "🚚",
+      "title": "Professional House Mover Package",
+      "description": "Online Consultation\nFull Package Professional Movers Deal - Hire Professionals for the entire day *Excludes Mileage*",
+      "duration": "12 hr",
+      "price": null,
+      "link": "/services/house-mover"
+    },
+    {
+      "id": "residential",
+      "icon": "📦",
+      "title": "Professional Residential / Local Movers",
+      "description": "Online Consultation\nBasic Moving Services - 2 guys + Truck + Moving Essentials",
+      "duration": "3 hr - 9 hr",
+      "price": null,
+      "link": "/services/residential"
+    },
+    {
+      "id": "gun-safe",
+      "icon": "🔒",
+      "title": "Gun Safe/Vault Movers",
+      "description": "Online Consultation",
+      "duration": "3 hr - 6 hr",
+      "price": null,
+      "link": "/services/gun-safe"
+    },
+    {
+      "id": "additional-mover",
+      "icon": "👥",
+      "title": "Additional Mover",
+      "description": "Get professional help with loading your belongings",
+      "duration": "1 hr - 7 hr",
+      "price": null,
+      "link": "/services/additional-mover"
+    },
+    {
+      "id": "art-packing",
+      "icon": "🎨",
+      "title": "Art Packing (3 Hour Min)",
+      "description": "Online Consultation\nBasic Moving Services - 2 guys + Truck + Moving Essentials",
+      "duration": "3 hr - 9 hr",
+      "price": null,
+      "link": "/services/art-packing"
+    },
+    {
+      "id": "furniture-assembly",
+      "icon": "🪑",
+      "title": "Furniture Assembly",
+      "description": "",
+      "duration": "1 hr 30 min - 7 hr",
+      "price": null,
+      "link": "/services/furniture-assembly"
+    },
+    {
+      "id": "college-dorm",
+      "icon": "🎓",
+      "title": "College Dorm Move (Complete Package)",
+      "description": "Efficiently move your entire house with our professional moving services",
+      "duration": "2 hr",
+      "price": null,
+      "link": "/services/college-dorm"
+    }
+  ]
+} 

@@ -1,0 +1,169 @@
+{
+  "referralProgram": {
+    "title": "Refer Friends & Earn Rewards",
+    "description": "Share Pack Move Go with friends and family. When they book a move, you both get rewarded!",
+    "mainReward": {
+      "amount": 50,
+      "currency": "USD",
+      "type": "cash",
+      "description": "Cash reward for each successful referral"
+    },
+    "bonusRewards": [
+      {
+        "id": "first-referral",
+        "title": "First Referral Bonus",
+        "description": "Get an extra $25 bonus for your first successful referral",
+        "amount": 25,
+        "currency": "USD",
+        "type": "bonus"
+      },
+      {
+        "id": "monthly-bonus",
+        "title": "Monthly Top Referrer",
+        "title": "Monthly Top Referrer",
+        "description": "Earn an additional $100 if you're the top referrer of the month",
+        "amount": 100,
+        "currency": "USD",
+        "type": "bonus"
+      },
+      {
+        "id": "service-discount",
+        "title": "Service Discount",
+        "description": "Get 10% off your next move for every 3 successful referrals",
+        "amount": 10,
+        "currency": "percent",
+        "type": "discount"
+      }
+    ]
+  },
+  "howItWorks": [
+    {
+      "step": 1,
+      "title": "Share Your Link",
+      "description": "Get your unique referral link and share it with friends, family, or on social media",
+      "icon": "🔗"
+    },
+    {
+      "step": 2,
+      "title": "Friend Books a Move",
+      "description": "When your friend uses your link and books a move with Pack Move Go",
+      "icon": "📅"
+    },
+    {
+      "step": 3,
+      "title": "Both Get Rewarded",
+      "description": "You get $50 cash reward and your friend gets a special discount on their move",
+      "icon": "💰"
+    }
+  ],
+  "referralTerms": [
+    "Referral must be a new customer (first-time booking with Pack Move Go)",
+    "Friend must complete their move to qualify for rewards",
+    "Rewards are paid within 30 days of completed move",
+    "No limit on number of referrals you can make",
+    "Referral rewards cannot be combined with other promotions",
+    "Pack Move Go reserves the right to modify terms at any time",
+    "Referral must mention your name or use your unique referral link",
+    "Minimum move value of $200 required for referral to qualify"
+  ],
+  "referralStats": {
+    "totalReferrals": 1247,
+    "totalRewardsPaid": 62350,
+    "averageRewardPerReferral": 50,
+    "successfulReferrals": 1247,
+    "pendingReferrals": 23
+  },
+  "socialSharing": {
+    "title": "Share on Social Media",
+    "description": "Make it easy for friends to find us by sharing on your favorite platforms",
+    "platforms": [
+      {
+        "name": "Facebook",
+        "icon": "📘",
+        "color": "bg-blue-600",
+        "shareText": "I just used Pack Move Go for my move and they were amazing! Professional, efficient, and made the whole process stress-free. If you're planning a move, check them out - and if you mention my name, we both get rewards! 🚚📦"
+      },
+      {
+        "name": "Instagram",
+        "icon": "📷",
+        "color": "bg-pink-600",
+        "shareText": "Just finished my move with @packmovego and they were incredible! Professional service, careful with my belongings, and made everything so easy. If you're moving soon, definitely check them out! #moving #packmovego #stressfreemove"
+      },
+      {
+        "name": "Twitter",
+        "icon": "🐦",
+        "color": "bg-blue-400",
+        "shareText": "Just had an amazing moving experience with @packmovego! Professional, efficient, and stress-free. If you're planning a move, check them out - mention my name and we both get rewards! 🚚📦 #moving #packmovego"
+      },
+      {
+        "name": "LinkedIn",
+        "icon": "💼",
+        "color": "bg-blue-700",
+        "shareText": "I recently used Pack Move Go for my relocation and was extremely impressed with their professional service. They handled everything with care and efficiency. If you're planning a business or residential move, I highly recommend their services."
+      }
+    ]
+  },
+  "referralForm": {
+    "title": "Start Referring Today",
+    "description": "Enter your information to get your unique referral link and start earning rewards",
+    "fields": [
+      {
+        "name": "firstName",
+        "label": "First Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "Enter your first name"
+      },
+      {
+        "name": "lastName",
+        "label": "Last Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "Enter your last name"
+      },
+      {
+        "name": "email",
+        "label": "Email Address",
+        "type": "email",
+        "required": true,
+        "placeholder": "Enter your email address"
+      },
+      {
+        "name": "phone",
+        "label": "Phone Number",
+        "type": "tel",
+        "required": false,
+        "placeholder": "Enter your phone number (optional)"
+      }
+    ]
+  },
+  "successStories": [
+    {
+      "id": 1,
+      "name": "Sarah Johnson",
+      "location": "Anaheim, CA",
+      "referrals": 8,
+      "totalEarned": 400,
+      "story": "I've referred 8 friends to Pack Move Go and earned $400! The process is so easy and everyone I've referred has been happy with the service. It's a win-win for everyone!",
+      "avatar": "/images/referrals/sarah.jpg"
+    },
+    {
+      "id": 2,
+      "name": "Michael Chen",
+      "location": "Irvine, CA",
+      "referrals": 12,
+      "totalEarned": 600,
+      "story": "As a real estate agent, I'm always looking for reliable moving services for my clients. Pack Move Go has never let me down, and the referral program is a great bonus!",
+      "avatar": "/images/referrals/michael.jpg"
+    },
+    {
+      "id": 3,
+      "name": "Emily Rodriguez",
+      "location": "Santa Ana, CA",
+      "referrals": 5,
+      "totalEarned": 275,
+      "story": "I earned $275 just by sharing my experience with friends and family. The referral program is so simple and the rewards are great!",
+      "avatar": "/images/referrals/emily.jpg"
+    }
+  ]
+} 

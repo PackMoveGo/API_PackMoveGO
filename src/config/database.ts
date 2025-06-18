@@ -3,17 +3,19 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-if (!process.env.MONGODB_URI) {
-  console.error('MONGODB_URI is not defined in environment variables');
-  process.exit(1);
-}
-
 const MONGODB_URI = process.env.MONGODB_URI;
-console.log('Attempting to connect to MongoDB...');
-console.log('URI format check:', MONGODB_URI.startsWith('mongodb+srv://'));
-console.log('Username check:', MONGODB_URI.includes('rhamseyswork'));
 
 export const connectDB = async () => {
+  // If no MongoDB URI is provided, skip connection
+  if (!MONGODB_URI) {
+    console.log('No MONGODB_URI provided - skipping database connection');
+    return;
+  }
+
+  console.log('Attempting to connect to MongoDB...');
+  console.log('URI format check:', MONGODB_URI.startsWith('mongodb+srv://'));
+  console.log('Username check:', MONGODB_URI.includes('rhamseyswork'));
+
   try {
     await mongoose.connect(MONGODB_URI, {
       dbName: 'packgomove', // Explicitly set the database name
@@ -53,6 +55,13 @@ export const connectDB = async () => {
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
     }
+    
+    // In development, don't crash the app if MongoDB is not available
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Continuing without MongoDB connection in development mode');
+      return;
+    }
+    
     process.exit(1);
   }
 }; 

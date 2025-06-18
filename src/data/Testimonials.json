@@ -1,0 +1,25 @@
+{
+  "testimonials": [
+    {
+      "id": 1,
+      "name": "Sarah Johnson",
+      "role": "Homeowner",
+      "content": "Pack Move Go made my cross-town move completely stress-free. Their team was professional, efficient, and handled my belongings with exceptional care. I couldn't be happier with their service!",
+      "image": "/images/testimonials/sarah.jpg"
+    },
+    {
+      "id": 2,
+      "name": "Michael Chen",
+      "role": "Business Owner",
+      "content": "As a business owner, I needed a reliable moving service for my office relocation. Pack Move Go exceeded my expectations with their organized approach and attention to detail.",
+      "image": "/images/testimonials/michael.jpg"
+    },
+    {
+      "id": 3,
+      "name": "Emily Rodriguez",
+      "role": "Apartment Resident",
+      "content": "The team at Pack Move Go was amazing! They made my apartment move so easy and were incredibly friendly throughout the process. I'll definitely use their services again.",
+      "image": "/images/testimonials/emily.jpg"
+    }
+  ]
+} 

@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 import { securityMiddleware } from './middleware/security';
+import dataRoutes from './route/dataRoutes';
 
 dotenv.config();
 
@@ -15,10 +16,14 @@ const app = express();
 const port = process.env.PORT || 3000;
 const isDevelopment = process.env.NODE_ENV === 'development';
 
-// Connect to MongoDB
+// Connect to MongoDB (optional in development)
 connectDB().catch(err => {
   console.error('Failed to connect to MongoDB:', err);
-  process.exit(1);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Continuing without database connection in development mode');
+  } else {
+    process.exit(1);
+  }
 });
 
 // CORS configuration
@@ -26,6 +31,7 @@ const corsOptions = {
   origin: process.env.CORS_ORIGIN?.split(',') || [
     'http://localhost:5173',
     'http://localhost:5000',
+    'http://localhost:5001',
     'https://www.packmovego.com',
     'https://packmovego.com'
   ],
@@ -65,6 +71,7 @@ app.use((req, res, next) => {
 app.use('/api', signupRoutes);
 app.use('/api', sectionRoutes);
 app.use('/api', securityRoutes);
+app.use('/api', dataRoutes);
 
 // Development mode: Proxy frontend requests to Vite dev server
 if (isDevelopment) {
