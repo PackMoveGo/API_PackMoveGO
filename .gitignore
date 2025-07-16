@@ -19,5 +19,5 @@ yarn-error.log*
 
 **/logs/
 
-**/*.env
+**/*.env.*
 >>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
