@@ -4,24 +4,13 @@ services:
     env: node
     repo: https://github.com/SereneAura2/PackMoveGO-API
     buildCommand: npm install && npm run build
-    startCommand: npm start
+    startCommand: node dist/server.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
       - key: MONGODB_URI
-<<<<<<< HEAD
-        value: mongodb+srv://rhamseyswork:PiratesMath1983@packgomove.uz0qifj.mongodb.net/?retryWrites=true&w=majority&appName=PackGoMove
-      - key: JWT_SECRET
-        sync: false
-      - key: STRIPE_SECRET_KEY
-        sync: false
-      - key: EMAIL_USER
-        sync: false
-      - key: EMAIL_PASS
-        sync: false
-=======
         value: mongodb+srv://admin:nJPb6TTiYqfjjexI@packmovego.9yxraau.mongodb.net/?retryWrites=true&w=majority&appName=PackMoveGo
       - key: DATABASE_URL
         value: prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqd3RfaWQiOjEsInNlY3VyZV9rZXkiOiJza191ZjVadVdRRmR1MFRJQkNNQmVaQjQiLCJhcGlfa2V5IjoiMDFLMEE3NEdZQVgzM0VNWjdFQkU0RjhUWFciLCJ0ZW5hbnRfaWQiOiJiOTQ3NWNmNGM4ZTc0MDI5OTE5Yzg0NDgyYjZmYzQ0ZDkwYmIzMDg4YWY0MDQ4ODhkNmUzMjcwYzAwZDY2N2Q0IiwiaW50ZXJuYWxfc2VjcmV0IjoiODBiNTRmNGYtZGRkMi00YWMzLWI5MjUtNTM0NTlkMDIyMWJmIn0.qC3Edzhp6cKoURWAM5mV2M6zAN24Y-iDbrcJDrhZSXg
@@ -63,7 +52,6 @@ services:
         value: false
       - key: ALLOWED_IPS
         value: 172.58.112.138,127.0.0.1
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
     healthCheckPath: /api/health
     autoDeploy: true
     plan: free 
