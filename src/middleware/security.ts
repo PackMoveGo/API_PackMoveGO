@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import { vercelIpWhitelist } from './ipWhitelist';
+// import { ipWhitelist } from './ipWhitelist';
 
 // Rate limiting configuration - stricter for production
 const apiLimiter = rateLimit({
@@ -161,7 +161,7 @@ const additionalSecurityHeaders = (req: Request, res: Response, next: NextFuncti
 // Combine all security middleware
 export const securityMiddleware = [
   securityHeaders,
-  vercelIpWhitelist,
+  // ipWhitelist, // Uncomment if you want to use IP whitelisting
   apiLimiter,
   validateRequest,
   requestSizeLimiter,

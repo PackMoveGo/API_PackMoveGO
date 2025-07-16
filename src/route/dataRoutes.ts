@@ -3,11 +3,6 @@ import { getDataFile } from '../controller/dataController';
 
 const router = Router();
 
-<<<<<<< HEAD
-// Route: /api/data/:name
-router.get('/data/:name', getDataFile);
-
-=======
 // Route: /api/data/:name (existing generic route)
 router.get('/data/:name', getDataFile);
 
@@ -62,5 +57,4 @@ router.get('/v0/testimonials', (req, res) => {
   getDataFile(req, res);
 });
 
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
 export default router; 

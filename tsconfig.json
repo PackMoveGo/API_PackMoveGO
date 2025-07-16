@@ -3,11 +3,7 @@
     "target": "es2018",
     "module": "commonjs",
     "outDir": "./dist",
-<<<<<<< HEAD
-    "rootDir": "./src",
-=======
     "rootDir": "./",
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
     "strict": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -21,10 +17,6 @@
       "@util/*": ["util/*"]
     }
   },
-<<<<<<< HEAD
-  "include": ["src/server.ts", "src/route/**/*", "src/controller/**/*", "src/service/**/*", "src/model/**/*", "src/util/**/*"],
-=======
   "include": ["src/server.ts", "src/route/**/*", "src/controller/**/*", "src/service/**/*", "src/model/**/*", "src/util/**/*", "config/**/*"],
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
   "exclude": ["node_modules", "dist", "src/components", "src/staticpage", "src/App.tsx"]
 } 

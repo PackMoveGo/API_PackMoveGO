@@ -5,41 +5,23 @@ import fs from 'fs';
 const dataDir = path.join(__dirname, '../data');
 
 export const getDataFile = (req: Request, res: Response) => {
-<<<<<<< HEAD
-  const { name } = req.params;
-=======
   // Extract name from params or from URL path
   let { name } = req.params;
-  
   // If name is not in params, extract it from the URL path
   if (!name) {
     const pathParts = req.path.split('/');
     name = pathParts[pathParts.length - 1]; // Get the last part of the path
   }
-  
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
   // Only allow specific files for security
   const allowedFiles = [
     'nav', 'contact', 'referral', 'blog', 'reviews', 'locations', 'supplies', 'Services', 'Testimonials', 'about'
   ];
-<<<<<<< HEAD
   if (!allowedFiles.includes(name)) {
     return res.status(404).json({ error: 'Data file not found' });
   }
   // about.txt is a text file, others are JSON
   const ext = name === 'about' ? '.txt' : '.json';
   const filePath = path.join(dataDir, name + ext);
-=======
-  
-  if (!allowedFiles.includes(name)) {
-    return res.status(404).json({ error: 'Data file not found' });
-  }
-  
-  // about.txt is a text file, others are JSON
-  const ext = name === 'about' ? '.txt' : '.json';
-  const filePath = path.join(dataDir, name + ext);
-  
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
   fs.readFile(filePath, 'utf8', (err, data) => {
     if (err) {
       return res.status(404).json({ error: 'Data file not found' });

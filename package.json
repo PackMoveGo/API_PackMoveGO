@@ -1,27 +1,15 @@
 {
   "name": "pack-go-movers-backend",
   "version": "1.0.0",
-<<<<<<< HEAD
   "description": "Backend for Pack Go Movers",
-  "main": "src/server.ts",
-  "scripts": {
-    "start": "node -r tsconfig-paths/register dist/server.js",
-    "dev": "nodemon src/server.ts",
-    "build": "tsc",
-    "postinstall": "npm run build"
-=======
-  "description": "Backend for Pack Go Movers with integrated frontend",
   "main": "src/server.ts",
   "scripts": {
     "start": "node -r tsconfig-paths/register dist/server.js",
     "dev": "npm run dev:backend",
     "dev:backend": "nodemon src/server.ts",
-    "dev:frontend": "vite",
     "build": "npm run build:backend",
     "build:backend": "tsc",
-    "build:frontend": "vite build",
     "postinstall": "npm run build:backend"
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -32,62 +20,24 @@
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.11.5",
     "@types/nodemailer": "^6.4.14",
-<<<<<<< HEAD
     "bcryptjs": "^2.4.3",
-=======
-    "axios": "^1.4.0",
-    "bcryptjs": "^2.4.3",
-    "body-parser": "^1.20.2",
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.5.0",
     "express-validator": "^7.2.1",
-<<<<<<< HEAD
     "helmet": "^8.1.0",
     "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.1.1",
     "nodemailer": "^6.9.9",
-=======
-    "framer-motion": "^10.16.4",
-    "helmet": "^8.1.0",
-    "http-proxy-middleware": "^3.0.5",
-    "jsonwebtoken": "^9.0.2",
-    "lucide-react": "^0.263.1",
-    "mongodb": "^6.17.0",
-    "mongoose": "^8.1.1",
-    "nodemailer": "^6.9.9",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.8.1",
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
     "stripe": "^14.14.0",
     "tsconfig-paths": "^4.2.0"
   },
   "devDependencies": {
-<<<<<<< HEAD
     "nodemon": "^3.0.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
-=======
-    "@types/react": "^18.2.15",
-    "@types/react-dom": "^18.2.7",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "@vitejs/plugin-react": "^4.0.3",
-    "autoprefixer": "^10.4.14",
-    "concurrently": "^8.2.2",
-    "eslint": "^8.45.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.3",
-    "nodemon": "^3.0.3",
-    "postcss": "^8.4.27",
-    "tailwindcss": "^3.3.3",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.3.3",
-    "vite": "^7.0.4"
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
   }
 }
+

@@ -1,10 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 
-<<<<<<< HEAD
-=======
 const allowedIps = (process.env.ALLOWED_IPS || '').split(',').map(ip => ip.trim()).filter(Boolean);
 
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
 // Vercel's IP ranges
 const VERCEL_IP_RANGES = [
   '76.76.21.0/24',  // Vercel's main IP range
@@ -250,63 +247,23 @@ function isIpInRange(ip: string, cidr: string): boolean {
   if (!cidr.includes('/')) {
     return ip === cidr;
   }
-
-  const [range, bits] = cidr.split('/');
-  const mask = parseInt(bits);
-  
-  const ipLong = ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet), 0) >>> 0;
-  const rangeLong = range.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet), 0) >>> 0;
-  
-  const maskLong = mask === 0 ? 0 : -1 << (32 - mask);
-  
-  return (ipLong & maskLong) === (rangeLong & maskLong);
+  const [range, bits = '32'] = cidr.split('/');
+  const ipAddr = ipToLong(ip);
+  const rangeAddr = ipToLong(range);
+  const mask = ~(2 ** (32 - Number(bits)) - 1);
+  return (ipAddr & mask) === (rangeAddr & mask);
 }
 
-// Middleware to check if the request IP is from Vercel
-export const vercelIpWhitelist = (req: Request, res: Response, next: NextFunction) => {
-  const clientIp = req.ip || req.socket.remoteAddress || '';
-  
-  // Allow requests from localhost during development
-  if (process.env.NODE_ENV === 'development' && (clientIp === '127.0.0.1' || clientIp === '::1')) {
-    return next();
-  }
-
-  // Allow requests from the frontend domain
-  const origin = req.headers.origin;
-  if (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com') {
-    return next();
-  }
-
-  // Check if the IP is in the Vercel IP ranges
-  const isAllowed = VERCEL_IP_RANGES.some(range => isIpInRange(clientIp, range));
-
-  if (!isAllowed) {
-    console.warn(`Blocked request from unauthorized IP: ${clientIp}, Origin: ${origin}`);
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied: Unauthorized IP address'
-    });
-  }
-
-  next();
-<<<<<<< HEAD
-}; 
-=======
-};
+function ipToLong(ip: string): number {
+  return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+}
 
 export function ipWhitelist(req: Request, res: Response, next: NextFunction) {
-  // Express sets req.ip to the left-most value in X-Forwarded-For or remoteAddress
-  const requestIp = req.ip || req.connection.remoteAddress || '';
-  if (requestIp && allowedIps.includes(requestIp)) {
-    return next();
-  }
-  // Also check for IPv6-mapped IPv4 addresses (e.g., ::ffff:127.0.0.1)
-  if (requestIp && requestIp.startsWith('::ffff:')) {
-    const ipv4 = requestIp.replace('::ffff:', '');
-    if (allowedIps.includes(ipv4)) {
-      return next();
-    }
-  }
-  res.status(403).json({ success: false, message: 'Your IP is not allowed.' });
+  const clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || req.socket.remoteAddress || '';
+  // Allow if in allowed IPs
+  if (allowedIps.includes(clientIp)) return next();
+  // Allow if in Vercel IPs
+  if (VERCEL_IP_RANGES.some(range => isIpInRange(clientIp, range))) return next();
+  // Otherwise, block
+  return res.status(403).json({ error: 'Access denied: IP not whitelisted' });
 } 
->>>>>>> b6c9270 (Initial commit: PackMoveGO API backend, ready for Render deployment with versioned endpoints and config folder support)
