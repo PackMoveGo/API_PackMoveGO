@@ -173,7 +173,7 @@ app.listen(port, () => {
   console.log(`✅ Methods: ${corsOptions.methods.join(', ')}`);
   console.log(`✅ Headers: ${corsOptions.allowedHeaders.join(', ')}`);
   console.log('⚙️ === Service Status ===');
-  
+
   // Check MongoDB connection
   let mongoStatus = '❌ Not connected';
   try {
@@ -183,7 +183,7 @@ app.listen(port, () => {
     mongoStatus = '❌ Connection failed';
   }
   console.log(`📦 MongoDB: ${mongoStatus}`);
-  
+
   // Check Prisma connection
   let prismaStatus = '❌ Not configured';
   if (process.env.DATABASE_URL) {
@@ -198,25 +198,25 @@ app.listen(port, () => {
     }
   }
   console.log(`🔗 Prisma: ⚠️ Not used (MongoDB active)`);
-  
+
   // Check JWT configuration
   const jwtStatus = process.env.JWT_SECRET ? '✅ Configured' : '❌ Not configured';
   console.log(`🔒 JWT: ${jwtStatus}`);
-  
+
   // Check Stripe configuration
   const stripeStatus = process.env.STRIPE_SECRET_KEY ? '✅ Configured' : '❌ Not configured';
   console.log(`💳 Stripe: ${stripeStatus}`);
-  
+
   // Check Email configuration
   const emailStatus = process.env.EMAIL_USER ? '✅ Configured' : '❌ Not configured';
   console.log(`📧 Email: ${emailStatus}`);
-  
+
   // Check IP Whitelist
-  const ipWhitelistStatus = process.env.IP_WHITELIST ? '✅ Active' : '❌ Not configured';
+  const ipWhitelistStatus = process.env.ALLOWED_IPS ? '✅ Active' : '❌ Not configured';
   console.log(`🔐 IP Whitelist: ${ipWhitelistStatus}`);
-  
+
   console.log('🎯 === REST API Ready ===');
   console.log('📡 All endpoints served directly from this server');
   console.log('🔗 Ready to accept requests from any frontend');
   console.log('==================================================');
-}); 
+});

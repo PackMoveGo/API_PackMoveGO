@@ -265,9 +265,24 @@ function ipToLong(ip: string): number {
 }
 
 export function ipWhitelist(req: Request, res: Response, next: NextFunction) {
-  const clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || req.socket.remoteAddress || '';
+  // Get the real client IP from various headers
+  let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+                 req.headers['x-real-ip']?.toString() || 
+                 req.headers['cf-connecting-ip']?.toString() ||
+                 req.socket.remoteAddress || '';
+  // Remove IPv6 prefix if present
+  if (clientIp.startsWith('::ffff:')) {
+    clientIp = clientIp.substring(7);
+  }
+  
   // Debug logging
   console.log(`🔐 IP Check - Client IP: ${clientIp}, Path: ${req.path}`);
+  
+  // If no whitelist is configured, allow all requests
+  if (allowedIps.length === 0) {
+    console.log(`✅ IP ${clientIp} allowed (no whitelist configured)`);
+    return next();
+  }
   
   // Allow if in allowed IPs
   if (allowedIps.includes(clientIp)) {
@@ -278,6 +293,20 @@ export function ipWhitelist(req: Request, res: Response, next: NextFunction) {
   // Allow if in Vercel IPs
   if (VERCEL_IP_RANGES.some(range => isIpInRange(clientIp, range))) {
     console.log(`✅ IP ${clientIp} allowed (Vercel range)`);
+    return next();
+  }
+  
+  // Allow Render's internal IPs (common Render IPs)
+  const renderIps = [
+    '10.0.0.0/8',    // Private network range
+    '172.16.0.0/12', // Private network range
+    '192.168.0.0/16', // Private network range
+    '127.0.0.1',     // Localhost
+    '::1'            // IPv6 localhost
+  ];
+  
+  if (renderIps.some(range => isIpInRange(clientIp, range))) {
+    console.log(`✅ IP ${clientIp} allowed (Render internal)`);
     return next();
   }
   
