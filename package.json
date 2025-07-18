@@ -10,7 +10,10 @@
     "build": "npm run build:backend && npm run copy-data",
     "build:backend": "tsc",
     "copy-data": "cp -r src/data dist/data",
-    "postinstall": "npm run build:backend"
+    "postinstall": "npm run build:backend",
+    "test:stability": "node test-server-stability.js",
+    "test:stability:prod": "TEST_URL=https://api.packmovego.com node test-server-stability.js",
+    "test:prod": "node test-production.js"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
