@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { ipWhitelist, SECURITY_CONFIG } from './ipWhitelist';
+import { authMiddleware } from './authMiddleware';
 
 // Rate limiting configuration - stricter for production
 const apiLimiter = rateLimit({
@@ -189,7 +190,7 @@ const securityMonitoring = (req: Request, res: Response, next: NextFunction) => 
 export const securityMiddleware = [
   securityHeaders,
   securityMonitoring,
-  ipWhitelist, // Enable IP whitelisting
+  authMiddleware, // Use new authentication middleware
   apiLimiter,
   validateRequest,
   requestSizeLimiter,

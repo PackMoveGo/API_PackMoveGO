@@ -1,16 +1,23 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { connectDB, getConnectionStatus } from './config/database';
 import signupRoutes from './route/signup';
 import sectionRoutes from './route/sectionRoutes';
 import securityRoutes from './route/securityRoutes';
 import prelaunchRoutes from './route/prelaunchRoutes';
+import authRoutes from './route/authRoutes';
+import sshRoutes from './route/sshRoutes';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { securityMiddleware } from './middleware/security';
 import dataRoutes from './route/dataRoutes';
 import { ipWhitelist } from './middleware/ipWhitelist';
+import { authMiddleware } from './middleware/authMiddleware';
 import serverMonitor from './util/monitor';
+// Import SSH server but don't start it immediately
+import { sshServer, SSH_CONFIG } from './ssh/sshServer';
 
 // Load environment variables from config directory
 dotenv.config({ path: path.join(__dirname, '../config/.env') });
@@ -93,6 +100,7 @@ app.use(securityMiddleware);
 
 // Basic middleware
 app.use(cors(corsOptions));
+app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -193,7 +201,29 @@ app.get('/api/health', (req, res) => {
   }
 });
 
+// Serve login page
+app.get('/login', (req, res) => {
+  const loginPagePath = path.join(__dirname, 'view', 'login.html');
+  if (fs.existsSync(loginPagePath)) {
+    res.sendFile(loginPagePath);
+  } else {
+    res.status(404).send('Login page not found');
+  }
+});
+
+// Serve dashboard page
+app.get('/dashboard', (req, res) => {
+  const dashboardPath = path.join(__dirname, 'view', 'dashboard.html');
+  if (fs.existsSync(dashboardPath)) {
+    res.sendFile(dashboardPath);
+  } else {
+    res.status(404).send('Dashboard page not found');
+  }
+});
+
 // API Routes with proper status codes
+app.use('/api/auth', authRoutes);
+app.use('/api/ssh', sshRoutes);
 app.use('/api', signupRoutes);
 app.use('/api', sectionRoutes);
 app.use('/api', securityRoutes);

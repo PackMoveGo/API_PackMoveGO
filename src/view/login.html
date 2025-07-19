@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PackMoveGO - Admin Access</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .logo {
+            margin-bottom: 2rem;
+        }
+        
+        .logo h1 {
+            color: #333;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .logo p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .error {
+            color: #e74c3c;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .success {
+            color: #27ae60;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .info {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <h1>PackMoveGO</h1>
+            <p>Admin Access Required</p>
+        </div>
+        
+        <div class="info">
+            <strong>Access Information:</strong><br>
+            Your IP address has been identified as an authorized location.<br>
+            Please enter the admin password to continue.
+        </div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="password">Admin Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <button type="submit" class="btn" id="submitBtn">Login</button>
+        </form>
+        
+        <div id="message"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('loginForm');
+        const passwordInput = document.getElementById('password');
+        const submitBtn = document.getElementById('submitBtn');
+        const messageDiv = document.getElementById('message');
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const password = passwordInput.value;
+            
+            if (!password) {
+                showMessage('Please enter a password', 'error');
+                return;
+            }
+            
+            // Disable form during submission
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Logging in...';
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ password }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('Login successful! Redirecting...', 'success');
+                    // Redirect to the dashboard
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                } else {
+                    showMessage(data.message || 'Login failed', 'error');
+                }
+            } catch (error) {
+                showMessage('Network error. Please try again.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Login';
+            }
+        });
+        
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = type;
+        }
+        
+        // Check authentication status on page load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch('/api/auth/status', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.authenticated) {
+                    // Already authenticated, redirect
+                    window.location.href = '/dashboard';
+                }
+            } catch (error) {
+                console.log('Status check failed:', error);
+            }
+        });
+    </script>
+</body>
+</html> 

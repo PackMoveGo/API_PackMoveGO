@@ -162,8 +162,8 @@ export function ipWhitelist(req: Request, res: Response, next: NextFunction) {
   // Check if IP is in trusted ranges
   if (isTrustedIp(clientIp)) {
     console.log(`✅ IP ${clientIp} in trusted range for ${requestPath}`);
-    return next();
-  }
+  return next();
+} 
   
   // Block the request and redirect
   if (SECURITY_CONFIG.LOG_BLOCKED_REQUESTS) {
