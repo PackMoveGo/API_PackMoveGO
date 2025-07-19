@@ -94,6 +94,11 @@ const corsOptions = {
 // Apply security middleware first
 app.use(securityMiddleware);
 
+// Apply authentication middleware globally in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(authMiddleware);
+}
+
 // Apply IP whitelist only to sensitive routes, not globally
 // app.use(ipWhitelist); // Commented out to allow public access
 
@@ -224,11 +229,11 @@ app.get('/dashboard', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/ssh', sshRoutes);
 
-// Protected routes that require authentication
-app.use('/api/signup', authMiddleware, signupRoutes);
-app.use('/api/sections', authMiddleware, sectionRoutes);
-app.use('/api/security', authMiddleware, securityRoutes);
-app.use('/api/prelaunch', authMiddleware, prelaunchRoutes);
+// All routes now protected by global auth middleware in production
+app.use('/api/signup', signupRoutes);
+app.use('/api/sections', sectionRoutes);
+app.use('/api/security', securityRoutes);
+app.use('/api/prelaunch', prelaunchRoutes);
 
 // Public data routes that frontend can access without authentication
 app.use('/api', dataRoutes);

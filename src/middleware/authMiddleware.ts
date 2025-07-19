@@ -13,7 +13,8 @@ const AUTH_CONFIG = {
   ALLOWED_IPS: (process.env.ALLOWED_IPS || '').split(',').map(ip => ip.trim()).filter(Boolean),
   REDIRECT_URL: process.env.REDIRECT_URL || 'https://www.packmovego.com',
   FRONTEND_DOMAIN: 'https://www.packmovego.com',
-  API_DOMAIN: 'https://api.packmovego.com'
+  API_DOMAIN: 'https://api.packmovego.com',
+  IS_PRODUCTION: process.env.NODE_ENV === 'production'
 };
 
 // Get client IP from various headers
@@ -37,17 +38,32 @@ function isFrontendRequest(req: Request): boolean {
   const origin = req.headers.origin;
   const referer = req.headers.referer;
   
-  // Check origin header
-  if (origin && origin === AUTH_CONFIG.FRONTEND_DOMAIN) {
+  // In production, be more strict about frontend verification
+  if (AUTH_CONFIG.IS_PRODUCTION) {
+    // Check origin header
+    if (origin && origin === AUTH_CONFIG.FRONTEND_DOMAIN) {
+      return true;
+    }
+    
+    // Check referer header
+    if (referer && referer.startsWith(AUTH_CONFIG.FRONTEND_DOMAIN)) {
+      return true;
+    }
+    
+    // Check if IP is the frontend IP
+    const clientIp = getClientIp(req);
+    return clientIp === AUTH_CONFIG.FRONTEND_IP;
+  }
+  
+  // In development, be more lenient
+  if (origin && (origin === AUTH_CONFIG.FRONTEND_DOMAIN || origin.includes('localhost'))) {
     return true;
   }
   
-  // Check referer header
-  if (referer && referer.startsWith(AUTH_CONFIG.FRONTEND_DOMAIN)) {
+  if (referer && (referer.startsWith(AUTH_CONFIG.FRONTEND_DOMAIN) || referer.includes('localhost'))) {
     return true;
   }
   
-  // Check if IP is the frontend IP
   const clientIp = getClientIp(req);
   return clientIp === AUTH_CONFIG.FRONTEND_IP;
 }
@@ -128,10 +144,30 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     return next();
   }
   
-  // Allow frontend requests (by domain or IP)
-  if (isFrontendRequest(req)) {
-    console.log(`✅ Frontend request allowed from ${req.headers.origin || clientIp}`);
-    return next();
+  // In production, be more strict about access control
+  if (AUTH_CONFIG.IS_PRODUCTION) {
+    // Allow frontend requests (by domain or IP)
+    if (isFrontendRequest(req)) {
+      console.log(`✅ Frontend request allowed from ${req.headers.origin || clientIp}`);
+      return next();
+    }
+    
+    // For all other requests in production, require authentication or IP whitelist
+    if (!isAllowedIp(clientIp) && !isAuthenticated(req)) {
+      console.log(`🚫 Unauthorized access attempt from IP: ${clientIp}`);
+      return res.status(403).json({
+        success: false,
+        message: 'Access Forbidden',
+        error: 'This endpoint is not available',
+        timestamp: new Date().toISOString()
+      });
+    }
+  } else {
+    // In development, be more lenient
+    if (isFrontendRequest(req)) {
+      console.log(`✅ Frontend request allowed from ${req.headers.origin || clientIp}`);
+      return next();
+    }
   }
   
   // For authenticated users accessing dashboard, allow access
