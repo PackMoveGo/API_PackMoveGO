@@ -481,6 +481,7 @@ app.use('/*', (req, res, next) => {
   
   // Skip /v0/ routes completely - let them be handled by the specific route handlers
   if (req.path.startsWith('/v0/')) {
+    console.log(`✅ /v0/ route detected: ${req.path} - allowing to pass through`);
     return next();
   }
   
