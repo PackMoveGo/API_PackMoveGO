@@ -11,11 +11,17 @@
     "build:backend": "tsc",
     "copy-data": "cp -r src/data dist/data",
     "postinstall": "npm run build:backend",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "test:stability": "node test-server-stability.js",
     "test:stability:prod": "TEST_URL=https://api.packmovego.com node test-server-stability.js",
     "test:prod": "node test-production.js",
     "test:security": "node test-security.js",
-    "test:security:prod": "node test-security.js --prod"
+    "test:security:prod": "node test-security.js --prod",
+    "validate:env": "node -e \"require('./dist/config/envValidation').validateEnvironment()\"",
+    "logs": "tail -f logs/combined.log",
+    "logs:error": "tail -f logs/error.log"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -28,6 +34,9 @@
     "@types/node": "^20.11.5",
     "@types/nodemailer": "^6.4.14",
     "@types/ssh2": "^1.15.5",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/winston": "^2.4.4",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -38,12 +47,16 @@
     "helmet": "^8.1.0",
     "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.1.1",
+    "mongodb": "^6.18.0",
+    "mongoose": "^8.16.5",
     "node-fetch": "^2.7.0",
     "nodemailer": "^6.9.9",
     "ssh2": "^1.16.0",
     "stripe": "^14.14.0",
-    "tsconfig-paths": "^4.2.0"
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "tsconfig-paths": "^4.2.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3",

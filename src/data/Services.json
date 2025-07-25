@@ -5,63 +5,342 @@
       "icon": "🚚",
       "title": "Professional House Mover Package",
       "description": "Online Consultation\nFull Package Professional Movers Deal - Hire Professionals for the entire day *Excludes Mileage*",
-      "duration": "12 hr",
-      "price": null,
-      "link": "/services/house-mover"
+      "category": "residential",
+      "price": {
+        "starting": 1200,
+        "currency": "USD",
+        "display": "From $1,200",
+        "perHour": 100
+      },
+      "duration": {
+        "min": 12,
+        "max": 12,
+        "unit": "hours",
+        "display": "12 hours"
+      },
+      "features": [
+        "Professional movers",
+        "Moving truck",
+        "Full day service",
+        "Basic packing supplies",
+        "Furniture protection"
+      ],
+      "availability": {
+        "status": "available",
+        "leadTime": "48-72 hours"
+      },
+      "image": "/images/services/house-mover.jpg",
+      "slug": "house-mover",
+      "link": "/services/house-mover",
+      "meta": {
+        "popularity": 85,
+        "rating": 4.7,
+        "reviewCount": 89,
+        "featured": true
+      }
     },
     {
       "id": "residential",
       "icon": "📦",
       "title": "Professional Residential / Local Movers",
       "description": "Online Consultation\nBasic Moving Services - 2 guys + Truck + Moving Essentials",
-      "duration": "3 hr - 9 hr",
-      "price": null,
-      "link": "/services/residential"
+      "category": "residential",
+      "price": {
+        "starting": 375,
+        "currency": "USD",
+        "display": "From $375",
+        "perHour": 125
+      },
+      "duration": {
+        "min": 3,
+        "max": 9,
+        "unit": "hours",
+        "display": "3-9 hours"
+      },
+      "features": [
+        "Professional movers",
+        "Moving truck",
+        "Basic packing supplies",
+        "Furniture protection"
+      ],
+      "availability": {
+        "status": "available",
+        "leadTime": "24-48 hours"
+      },
+      "image": "/images/services/residential-moving.jpg",
+      "slug": "residential",
+      "link": "/services/residential",
+      "meta": {
+        "popularity": 95,
+        "rating": 4.8,
+        "reviewCount": 127,
+        "featured": true
+      }
     },
     {
       "id": "gun-safe",
       "icon": "🔒",
       "title": "Gun Safe/Vault Movers",
       "description": "Online Consultation",
-      "duration": "3 hr - 6 hr",
-      "price": null,
-      "link": "/services/gun-safe"
+      "category": "specialty",
+      "price": {
+        "starting": 450,
+        "currency": "USD",
+        "display": "From $450",
+        "perHour": 150
+      },
+      "duration": {
+        "min": 3,
+        "max": 6,
+        "unit": "hours",
+        "display": "3-6 hours"
+      },
+      "features": [
+        "Specialized equipment",
+        "Expert handling",
+        "Insurance coverage",
+        "Secure transport"
+      ],
+      "availability": {
+        "status": "available",
+        "leadTime": "24-48 hours"
+      },
+      "image": "/images/services/gun-safe.jpg",
+      "slug": "gun-safe",
+      "link": "/services/gun-safe",
+      "meta": {
+        "popularity": 65,
+        "rating": 4.9,
+        "reviewCount": 34,
+        "featured": false
+      }
     },
     {
       "id": "additional-mover",
       "icon": "👥",
       "title": "Additional Mover",
       "description": "Get professional help with loading your belongings",
-      "duration": "1 hr - 7 hr",
-      "price": null,
-      "link": "/services/additional-mover"
+      "category": "addon",
+      "price": {
+        "starting": 75,
+        "currency": "USD",
+        "display": "From $75",
+        "perHour": 75
+      },
+      "duration": {
+        "min": 1,
+        "max": 7,
+        "unit": "hours",
+        "display": "1-7 hours"
+      },
+      "features": [
+        "Additional manpower",
+        "Flexible scheduling",
+        "Same-day availability"
+      ],
+      "availability": {
+        "status": "available",
+        "leadTime": "2-4 hours"
+      },
+      "image": "/images/services/additional-mover.jpg",
+      "slug": "additional-mover",
+      "link": "/services/additional-mover",
+      "meta": {
+        "popularity": 70,
+        "rating": 4.6,
+        "reviewCount": 45,
+        "featured": false
+      }
     },
     {
       "id": "art-packing",
       "icon": "🎨",
       "title": "Art Packing (3 Hour Min)",
       "description": "Online Consultation\nBasic Moving Services - 2 guys + Truck + Moving Essentials",
-      "duration": "3 hr - 9 hr",
-      "price": null,
-      "link": "/services/art-packing"
+      "category": "specialty",
+      "price": {
+        "starting": 300,
+        "currency": "USD",
+        "display": "From $300",
+        "perHour": 100
+      },
+      "duration": {
+        "min": 3,
+        "max": 9,
+        "unit": "hours",
+        "display": "3-9 hours"
+      },
+      "features": [
+        "Specialized art handling",
+        "Climate-controlled transport",
+        "Insurance coverage",
+        "Expert packing materials"
+      ],
+      "availability": {
+        "status": "available",
+        "leadTime": "48-72 hours"
+      },
+      "image": "/images/services/art-packing.jpg",
+      "slug": "art-packing",
+      "link": "/services/art-packing",
+      "meta": {
+        "popularity": 55,
+        "rating": 4.8,
+        "reviewCount": 28,
+        "featured": false
+      }
     },
     {
       "id": "furniture-assembly",
       "icon": "🪑",
       "title": "Furniture Assembly",
-      "description": "",
-      "duration": "1 hr 30 min - 7 hr",
-      "price": null,
-      "link": "/services/furniture-assembly"
+      "description": "Professional furniture assembly and disassembly services",
+      "category": "addon",
+      "price": {
+        "starting": 60,
+        "currency": "USD",
+        "display": "From $60",
+        "perHour": 60
+      },
+      "duration": {
+        "min": 1.5,
+        "max": 7,
+        "unit": "hours",
+        "display": "1.5-7 hours"
+      },
+      "features": [
+        "Expert assembly",
+        "Tool provision",
+        "Quality guarantee",
+        "Same-day service"
+      ],
+      "availability": {
+        "status": "available",
+        "leadTime": "4-8 hours"
+      },
+      "image": "/images/services/furniture-assembly.jpg",
+      "slug": "furniture-assembly",
+      "link": "/services/furniture-assembly",
+      "meta": {
+        "popularity": 80,
+        "rating": 4.7,
+        "reviewCount": 67,
+        "featured": false
+      }
     },
     {
       "id": "college-dorm",
       "icon": "🎓",
       "title": "College Dorm Move (Complete Package)",
       "description": "Efficiently move your entire house with our professional moving services",
-      "duration": "2 hr",
-      "price": null,
-      "link": "/services/college-dorm"
+      "category": "residential",
+      "price": {
+        "starting": 250,
+        "currency": "USD",
+        "display": "From $250",
+        "perHour": 125
+      },
+      "duration": {
+        "min": 2,
+        "max": 2,
+        "unit": "hours",
+        "display": "2 hours"
+      },
+      "features": [
+        "Student discount",
+        "Flexible scheduling",
+        "Weekend availability",
+        "Storage options"
+      ],
+      "availability": {
+        "status": "available",
+        "leadTime": "24-48 hours"
+      },
+      "image": "/images/services/college-dorm.jpg",
+      "slug": "college-dorm",
+      "link": "/services/college-dorm",
+      "meta": {
+        "popularity": 75,
+        "rating": 4.6,
+        "reviewCount": 42,
+        "featured": false
+      }
+    },
+    {
+      "id": "commercial-moving",
+      "icon": "🏢",
+      "title": "Commercial Office Moving",
+      "description": "Professional commercial moving services for offices and businesses",
+      "category": "commercial",
+      "price": {
+        "starting": 800,
+        "currency": "USD",
+        "display": "From $800",
+        "perHour": 200
+      },
+      "duration": {
+        "min": 4,
+        "max": 12,
+        "unit": "hours",
+        "display": "4-12 hours"
+      },
+      "features": [
+        "After-hours service",
+        "Equipment handling",
+        "IT equipment protection",
+        "Minimal business disruption"
+      ],
+      "availability": {
+        "status": "available",
+        "leadTime": "72-96 hours"
+      },
+      "image": "/images/services/commercial-moving.jpg",
+      "slug": "commercial-moving",
+      "link": "/services/commercial-moving",
+      "meta": {
+        "popularity": 60,
+        "rating": 4.8,
+        "reviewCount": 23,
+        "featured": false
+      }
+    },
+    {
+      "id": "piano-moving",
+      "icon": "🎹",
+      "title": "Piano Moving Specialists",
+      "description": "Specialized piano moving with expert handling and protection",
+      "category": "specialty",
+      "price": {
+        "starting": 600,
+        "currency": "USD",
+        "display": "From $600",
+        "perHour": 200
+      },
+      "duration": {
+        "min": 3,
+        "max": 8,
+        "unit": "hours",
+        "display": "3-8 hours"
+      },
+      "features": [
+        "Specialized equipment",
+        "Expert piano handling",
+        "Climate control",
+        "Insurance coverage"
+      ],
+      "availability": {
+        "status": "available",
+        "leadTime": "48-72 hours"
+      },
+      "image": "/images/services/piano-moving.jpg",
+      "slug": "piano-moving",
+      "link": "/services/piano-moving",
+      "meta": {
+        "popularity": 45,
+        "rating": 4.9,
+        "reviewCount": 18,
+        "featured": false
+      }
     }
   ]
 } 

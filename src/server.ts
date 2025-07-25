@@ -13,27 +13,40 @@ import path from 'path';
 import fs from 'fs';
 import { securityMiddleware, authMiddleware } from './middleware/security';
 import dataRoutes from './route/dataRoutes';
+import servicesRoutes from './route/servicesRoutes';
 import { ipWhitelist } from './middleware/ipWhitelist';
 import serverMonitor from './util/monitor';
+import { validateEnvironment } from './config/envValidation';
+import logger, { logInfo, logError, logWarn } from './util/logger';
+import { setupSwagger } from './config/swagger';
 // Import SSH server but don't start it immediately
 import { sshServer, SSH_CONFIG } from './ssh/sshServer';
 
 // Load environment variables from config directory
 dotenv.config({ path: path.join(__dirname, '../config/.env') });
 
+// Validate environment configuration
+let envConfig;
+try {
+  envConfig = validateEnvironment();
+  logInfo('✅ Environment validation passed');
+} catch (error) {
+  logError('❌ Environment validation failed', error);
+  process.exit(1);
+}
+
 const app = express();
-const port = process.env.PORT || 3000;
+const port = envConfig.PORT;
 
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
-  console.error('Stack trace:', error.stack);
+  logError('❌ Uncaught Exception:', error);
   // Don't exit immediately, let the server try to handle it
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise);
-  console.error('Reason:', reason);
+  logError('❌ Unhandled Rejection at:', promise);
+  logError('Reason:', reason);
   // Don't exit immediately, let the server try to handle it
 });
 
@@ -41,22 +54,22 @@ process.on('unhandledRejection', (reason, promise) => {
 let server: any;
 
 const gracefulShutdown = (signal: string) => {
-  console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+  logInfo(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
   
   if (server) {
     server.close((err: any) => {
       if (err) {
-        console.error('❌ Error during server shutdown:', err);
+        logError('❌ Error during server shutdown:', err);
         process.exit(1);
       }
       
-      console.log('✅ Server closed successfully');
+      logInfo('✅ Server closed successfully');
       process.exit(0);
     });
     
     // Force close after 10 seconds
     setTimeout(() => {
-      console.error('❌ Could not close connections in time, forcefully shutting down');
+      logError('❌ Could not close connections in time, forcefully shutting down');
       process.exit(1);
     }, 10000);
   } else {
@@ -70,8 +83,8 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Connect to MongoDB (optional in development)
 connectDB().catch((err: Error) => {
-  console.error('❌ Failed to connect to MongoDB:', err);
-  console.log('⚠️ Continuing without database connection');
+  logError('❌ Failed to connect to MongoDB:', err);
+  logWarn('⚠️ Continuing without database connection');
 });
 
 // CORS configuration for REST API
@@ -80,16 +93,20 @@ const corsOptions = {
     'http://localhost:5173',
     'http://localhost:5000',
     'http://localhost:5001',
-    'https://www.packmovego.com',
-    'https://packmovego.com',
-    ...(process.env.CORS_ORIGIN?.split(',') || [])
+    ...envConfig.CORS_ORIGIN
   ].filter((origin, index, arr) => arr.indexOf(origin) === index), // Remove duplicates
-  methods: (process.env.CORS_METHODS || 'GET,POST,PUT,DELETE,OPTIONS').split(','),
-  allowedHeaders: (process.env.CORS_ALLOWED_HEADERS || 'Content-Type,Authorization').split(','),
+  methods: envConfig.CORS_METHODS,
+  allowedHeaders: envConfig.CORS_ALLOWED_HEADERS,
   credentials: true,
   optionsSuccessStatus: 200,
   preflightContinue: false
 };
+
+// Setup Swagger documentation (only in development)
+if (envConfig.NODE_ENV === 'development') {
+  setupSwagger(app);
+  logInfo('📚 Swagger documentation available at /api-docs');
+}
 
 // Apply security middleware first
 app.use(securityMiddleware);
@@ -316,11 +333,46 @@ app.use('/api/prelaunch', prelaunchRoutes);
 // Public data routes that frontend can access without authentication
 app.use('/api', dataRoutes);
 
-// Catch-all for v0 endpoints without /api prefix (for proxy configurations)
-app.use('/v0/*', (req, res) => {
-  console.log(`🔄 Redirecting v0 request: ${req.path} to /api${req.path}`);
-  res.redirect(308, `/api${req.path}`);
-});
+// Enhanced services API routes
+app.use('/api', servicesRoutes);
+
+// === DEVELOPMENT MODE FIXES ===
+if (envConfig.NODE_ENV !== 'production') {
+  // 1. Serve /v0/* routes directly, no redirect
+  const v0DataFiles = [
+    'blog', 'about', 'nav', 'contact', 'referral', 'reviews', 'locations', 'supplies', 'services', 'testimonials'
+  ];
+  app.get(['/v0/:name', '/v0/:name/'], (req, res, next) => {
+    const { name } = req.params;
+    if (v0DataFiles.includes(name)) {
+      try {
+        const data = require(`./data/${name.charAt(0).toUpperCase() + name.slice(1)}.json`);
+        return res.json(data);
+      } catch (e) {
+        try {
+          // Try lowercase fallback
+          const data = require(`./data/${name}.json`);
+          return res.json(data);
+        } catch (err) {
+          return res.status(404).json({ error: 'Not found' });
+        }
+      }
+    }
+    next();
+  });
+
+  // 2. Serve / and /login with simple HTML or JSON (no redirect)
+  app.get('/', (req, res) => {
+    res.status(200).json({
+      message: 'Development API Root',
+      status: 'ok',
+      environment: envConfig.NODE_ENV
+    });
+  });
+  app.get('/login', (req, res) => {
+    res.status(200).send('<h1>Development Login Page</h1><p>This is a placeholder login page for development mode.</p>');
+  });
+}
 
 // Catch-all for any other endpoints that might be coming without /api prefix
 app.use('/*', (req, res, next) => {
@@ -388,6 +440,12 @@ app.get('/', (req, res) => {
           supplies: '/api/v0/supplies',
           services: '/api/v0/services',
           testimonials: '/api/v0/testimonials'
+        },
+        enhancedServices: {
+          services: '/api/v1/services',
+          serviceById: '/api/v1/services/:serviceId',
+          quote: '/api/v1/services/:serviceId/quote',
+          analytics: '/api/v1/services/analytics'
         },
         signup: '/api/signup',
         sections: '/api/sections',
@@ -489,6 +547,10 @@ app.use('/api/*', (req, res) => {
       '/api/v0/supplies',
       '/api/v0/services',
       '/api/v0/testimonials',
+      '/api/v1/services',
+      '/api/v1/services/:serviceId',
+      '/api/v1/services/:serviceId/quote',
+      '/api/v1/services/analytics',
       '/api/signup',
       '/api/sections',
       '/api/security',
@@ -563,6 +625,7 @@ server = app.listen(port, () => {
   console.log(`📊 Data API: http://localhost:${port}/api/data/:name`);
   console.log(`📝 Content APIs: /api/v0/blog, /api/v0/about, /api/v0/nav, /api/v0/contact, /api/v0/referral`);
   console.log(`📝 Content APIs: /api/v0/reviews, /api/v0/locations, /api/v0/supplies, /api/v0/services, /api/v0/testimonials`);
+  console.log(`🚀 Enhanced Services: /api/v1/services, /api/v1/services/:serviceId/quote, /api/v1/services/analytics`);
   console.log(`👤 User Routes: http://localhost:${port}/api/signup`);
   console.log(`📑 Section Routes: http://localhost:${port}/api/sections`);
   console.log(`🔒 Security Routes: http://localhost:${port}/api/security`);

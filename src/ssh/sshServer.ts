@@ -65,7 +65,7 @@ setInterval(cleanupExpiredSessions, 60000);
 // Create SSH server
 const sshServer = new Server({
   hostKeys: [{
-    key: process.env.SSH_HOST_KEY || require('fs').readFileSync('./test_ssh_key'),
+    key: process.env.SSH_HOST_KEY || require('fs').readFileSync('./src/test/test_ssh_key'),
     passphrase: process.env.SSH_HOST_KEY_PASSPHRASE || ''
   }]
 }, (client) => {

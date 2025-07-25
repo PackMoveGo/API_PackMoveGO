@@ -1,35 +1,29 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-// Session storage for authenticated users (in production, use Redis)
-const authenticatedSessions = new Map<string, { ip: string; expires: number }>();
+const authenticatedSessions=new Map<string,{ip:string;expires:number}>();//Session storage for authenticated users (in production, use Redis)
 
 // Configuration
-const AUTH_CONFIG = {
-  JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
-  SESSION_DURATION: 10 * 60 * 1000, // 10 minutes in milliseconds
-  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'packmovego2024',
-  FRONTEND_IP: process.env.ALLOWED_IPS?.split(',')[0]?.trim() || '76.76.21.21',
-  ALLOWED_IPS: (process.env.ALLOWED_IPS || '').split(',').map(ip => ip.trim()).filter(Boolean),
-  REDIRECT_URL: process.env.REDIRECT_URL || 'https://www.packmovego.com',
-  FRONTEND_DOMAIN: 'https://www.packmovego.com',
-  API_DOMAIN: 'https://api.packmovego.com',
-  IS_PRODUCTION: process.env.NODE_ENV === 'production'
+const AUTH_CONFIG ={
+  IS_PRODUCTION:process.env.NODE_ENV==='production',
+  JWT_SECRET:process.env.JWT_SECRET||'Bad Auth',
+  SESSION_DURATION:10*60*1000,//10 minutes in milliseconds
+  ADMIN_PASSWORD:process.env.ADMIN_PASSWORD||'Bad Auth',
+  FRONTEND_IP:process.env.ALLOWED_IPS?.split(',')[0]?.trim()||'Bad Auth',
+  ALLOWED_IPS:(process.env.ALLOWED_IPS||'').split(',').map(ip => ip.trim()).filter(Boolean),
+  REDIRECT_URL:'https://www.packmovego.com',
+  FRONTEND_DOMAIN:'https://www.packmovego.com',
+  API_DOMAIN:'https://api.packmovego.com'
 };
 
 // Get client IP from various headers
-function getClientIp(req: Request): string {
-  let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
-                 req.headers['x-real-ip']?.toString() || 
-                 req.headers['cf-connecting-ip']?.toString() ||
-                 req.headers['x-client-ip']?.toString() ||
-                 req.socket.remoteAddress || '';
-  
-  // Remove IPv6 prefix if present
-  if (clientIp.startsWith('::ffff:')) {
-    clientIp = clientIp.substring(7);
-  }
-  
+function getClientIp(req:Request):string{
+  let clientIp=req.headers['x-forwarded-for']?.toString().split(',')[0].trim()|| 
+                 req.headers['x-real-ip']?.toString()|| 
+                 req.headers['cf-connecting-ip']?.toString()||
+                 req.headers['x-client-ip']?.toString()||
+                 req.socket.remoteAddress|| '';
+  if(clientIp.startsWith('::ffff:')){clientIp=clientIp.substring(7);}// Remove IPv6 prefix if present
   return clientIp;
 }
 
