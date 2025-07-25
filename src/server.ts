@@ -195,7 +195,7 @@ if (envConfig.NODE_ENV === 'development') {
 // Apply security middleware first
 app.use(securityMiddleware);
 
-// Frontend-only API middleware
+// API Authentication middleware with multiple access methods
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const referer = req.headers.referer;
@@ -205,20 +205,65 @@ app.use((req, res, next) => {
     return next();
   }
   
-  // Allow frontend requests from packmovego.com
+  // Get client IP for whitelist check
+  let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+                 req.headers['x-real-ip']?.toString() || 
+                 req.headers['cf-connecting-ip']?.toString() ||
+                 req.headers['x-client-ip']?.toString() ||
+                 req.socket.remoteAddress || '';
+  
+  // Remove IPv6 prefix if present
+  if (clientIp.startsWith('::ffff:')) {
+    clientIp = clientIp.substring(7);
+  }
+  
+  // Check API key authentication first (highest priority)
+  if (process.env.API_KEY_ENABLED === 'true') {
+    const apiKey = (Array.isArray(req.headers['x-api-key']) ? req.headers['x-api-key'][0] : req.headers['x-api-key']) || 
+                   req.headers['authorization']?.replace('Bearer ', '');
+    
+    const validKeys = [
+      process.env.API_KEY_FRONTEND,
+      process.env.API_KEY_ADMIN
+    ].filter(Boolean);
+    
+    if (apiKey && validKeys.includes(apiKey)) {
+      const keyType = apiKey === process.env.API_KEY_FRONTEND ? 'frontend' : 
+                      apiKey === process.env.API_KEY_ADMIN ? 'admin' : 'unknown';
+      console.log(`✅ Valid ${keyType} API key for ${req.method} ${req.path} from ${clientIp}`);
+      (req as any).apiKeyType = keyType;
+      return next();
+    }
+  }
+  
+  // Check if IP is in whitelist (if enabled)
+  const allowedIps = (process.env.ALLOWED_IPS || '').split(',').map(ip => ip.trim()).filter(Boolean);
+  const isIpWhitelisted = process.env.ENABLE_IP_WHITELIST === 'true' && allowedIps.includes(clientIp);
+  
+  if (isIpWhitelisted) {
+    console.log(`✅ IP whitelisted request allowed: ${req.method} ${req.path} from ${clientIp}`);
+    return next();
+  }
+  
+  // Allow frontend requests from packmovego.com (domain-based)
   if (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com' ||
       (referer && (referer.includes('packmovego.com')))) {
-    console.log(`✅ Frontend request allowed: ${req.method} ${req.path} from ${origin || referer}`);
+    console.log(`✅ Frontend domain request allowed: ${req.method} ${req.path} from ${origin || referer}`);
     return next();
   }
   
   // Block all other requests in production
   if (process.env.NODE_ENV === 'production') {
-    console.log(`🚫 Blocked request: ${req.method} ${req.path} from ${origin || 'unknown'}`);
+    console.log(`🚫 Blocked request: ${req.method} ${req.path} from ${origin || 'unknown'}, IP: ${clientIp}`);
     return res.status(403).json({
       error: 'Access denied',
-      message: 'This API is only accessible from packmovego.com',
-      timestamp: new Date().toISOString()
+      message: 'Access requires: valid API key, whitelisted IP, or packmovego.com domain',
+      timestamp: new Date().toISOString(),
+      authentication: {
+        apiKey: 'Provide x-api-key header or Authorization: Bearer <key>',
+        domains: ['https://www.packmovego.com', 'https://packmovego.com'],
+        ipWhitelist: 'Contact admin for IP whitelist access'
+      }
     });
   }
   

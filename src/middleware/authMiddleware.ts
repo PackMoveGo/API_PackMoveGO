@@ -1,6 +1,58 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
+// API Key validation
+export function validateApiKey(req: Request, res: Response, next: NextFunction) {
+  // Skip API key validation for health checks
+  if (req.path === '/api/health' || req.path === '/health' || req.path === '/api/health/simple') {
+    return next();
+  }
+
+  // Check if API key authentication is enabled
+  if (process.env.API_KEY_ENABLED !== 'true') {
+    return next();
+  }
+
+  const apiKey = (Array.isArray(req.headers['x-api-key']) ? req.headers['x-api-key'][0] : req.headers['x-api-key']) || 
+                 req.headers['authorization']?.replace('Bearer ', '');
+  
+  if (!apiKey) {
+    console.log(`🚫 Missing API key for ${req.method} ${req.path} from ${req.ip}`);
+    return res.status(401).json({
+      success: false,
+      error: 'API key required',
+      message: 'Please provide a valid API key in the x-api-key header or Authorization header',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // Validate API key
+  const validKeys = [
+    process.env.API_KEY_FRONTEND,
+    process.env.API_KEY_ADMIN
+  ].filter(Boolean);
+
+  if (!validKeys.includes(apiKey)) {
+    console.log(`🚫 Invalid API key for ${req.method} ${req.path} from ${req.ip}`);
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid API key',
+      message: 'The provided API key is not valid',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // Log successful API key validation
+  const keyType = apiKey === process.env.API_KEY_FRONTEND ? 'frontend' : 
+                  apiKey === process.env.API_KEY_ADMIN ? 'admin' : 'unknown';
+  console.log(`✅ Valid ${keyType} API key for ${req.method} ${req.path} from ${req.ip}`);
+  
+  // Add key type to request for potential future use
+  (req as any).apiKeyType = keyType;
+  
+  next();
+}
+
 const authenticatedSessions=new Map<string,{ip:string;expires:number}>();//Session storage for authenticated users (in production, use Redis)
 
 // Configuration
