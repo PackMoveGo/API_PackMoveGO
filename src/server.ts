@@ -170,101 +170,51 @@ if (envConfig.NODE_ENV === 'development') {
 // Apply security middleware first
 app.use(securityMiddleware);
 
-// IP check middleware for login and dashboard routes
-app.use(['/login', '/dashboard'], (req, res, next) => {
-  // Use the same IP detection method as auth middleware
-  let clientIp = 'unknown';
+// Frontend-only API middleware
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const referer = req.headers.referer;
   
-  if (req.headers['x-forwarded-for']) {
-    const xff = req.headers['x-forwarded-for'];
-    clientIp = (typeof xff === 'string' ? xff : xff[0])?.split(',')[0]?.trim() || 'unknown';
-  } else if (req.headers['x-real-ip']) {
-    clientIp = req.headers['x-real-ip'] as string;
-  } else if (req.connection.remoteAddress) {
-    clientIp = req.connection.remoteAddress;
-  } else if (req.socket.remoteAddress) {
-    clientIp = req.socket.remoteAddress;
-  } else if (req.ip) {
-    clientIp = req.ip;
-  }
-  
-  console.log(`🔐 IP check for ${req.path}: ${clientIp}`);
-  
-  // Allow frontend requests
-  if (req.headers.origin === 'https://www.packmovego.com' || req.headers.origin === 'https://packmovego.com') {
-    console.log(`✅ Frontend request allowed for ${req.path}`);
+  // Always allow health checks
+  if (req.path === '/api/health' || req.path === '/health' || req.path === '/api/health/simple') {
     return next();
   }
   
-  // Check if IP is in allowed list
-  const allowedIps = process.env.ALLOWED_IPS?.split(',') || [];
-  console.log(`🔍 Checking IP ${clientIp} against allowed IPs: ${allowedIps.join(', ')}`);
-  
-  if (!allowedIps.includes(clientIp)) {
-    console.log(`🚫 Unauthorized IP ${clientIp} trying to access ${req.path}, redirecting to frontend`);
-    return res.redirect(302, 'https://www.packmovego.com');
+  // Allow frontend requests from packmovego.com
+  if (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com' ||
+      (referer && (referer.includes('packmovego.com')))) {
+    console.log(`✅ Frontend request allowed: ${req.method} ${req.path} from ${origin || referer}`);
+    return next();
   }
   
-  console.log(`✅ Authorized IP ${clientIp} accessing ${req.path}`);
+  // Block all other requests in production
+  if (process.env.NODE_ENV === 'production') {
+    console.log(`🚫 Blocked request: ${req.method} ${req.path} from ${origin || 'unknown'}`);
+    return res.status(403).json({
+      error: 'Access denied',
+      message: 'This API is only accessible from packmovego.com',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Allow in development
   next();
 });
 
-// Serve login and dashboard pages BEFORE global auth middleware
+// API-only routes - no login/dashboard pages needed
 app.get('/login', (req, res) => {
-  // Use a more reliable path resolution for production
-  const loginPagePath = path.join(process.cwd(), 'src', 'view', 'login.html');
-  console.log(`🔐 Serving login page from: ${loginPagePath}`);
-  
-  if (fs.existsSync(loginPagePath)) {
-    res.sendFile(loginPagePath);
-  } else {
-    console.error(`❌ Login page not found at: ${loginPagePath}`);
-    // Send a simple login page as fallback
-    res.status(200).send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>PackMoveGO - Admin Login</title></head>
-      <body>
-        <h1>PackMoveGO Admin Login</h1>
-        <p>Your IP is authorized. Please enter the admin password:</p>
-        <form action="/api/auth/login" method="POST">
-          <input type="password" name="password" placeholder="Admin Password" required>
-          <button type="submit">Login</button>
-        </form>
-        <p><small>Debug: Login page not found at ${loginPagePath}</small></p>
-      </body>
-      </html>
-    `);
-  }
+  res.status(403).json({
+    error: 'Access denied',
+    message: 'This API is only accessible from packmovego.com',
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.get('/dashboard', (req, res) => {
-  // Use a more reliable path resolution for production
-  const dashboardPath = path.join(process.cwd(), 'src', 'view', 'dashboard.html');
-  console.log(`📊 Serving dashboard from: ${dashboardPath}`);
-  
-  if (fs.existsSync(dashboardPath)) {
-    res.sendFile(dashboardPath);
-  } else {
-    console.error(`❌ Dashboard not found at: ${dashboardPath}`);
-    res.status(404).send('Dashboard page not found');
-  }
-});
-
-// Debug route to check file structure
-app.get('/debug', (req, res) => {
-  const cwd = process.cwd();
-  const srcPath = path.join(cwd, 'src');
-  const viewPath = path.join(srcPath, 'view');
-  const loginPath = path.join(viewPath, 'login.html');
-  
-  res.json({
-    cwd,
-    srcExists: fs.existsSync(srcPath),
-    viewExists: fs.existsSync(viewPath),
-    loginExists: fs.existsSync(loginPath),
-    files: fs.existsSync(viewPath) ? fs.readdirSync(viewPath) : [],
-    loginPath
+  res.status(403).json({
+    error: 'Access denied', 
+    message: 'This API is only accessible from packmovego.com',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -519,82 +469,47 @@ app.use('/*', (req, res, next) => {
   next();
 });
 
-// Root endpoint (fallback for non-production modes)
+// Root endpoint - API info only
 app.get('/', (req, res) => {
-  // Use the same IP detection method as other middleware
-  let clientIp = 'unknown';
-  
-  if (req.headers['x-forwarded-for']) {
-    const xff = req.headers['x-forwarded-for'];
-    clientIp = (typeof xff === 'string' ? xff : xff[0])?.split(',')[0]?.trim() || 'unknown';
-  } else if (req.headers['x-real-ip']) {
-    clientIp = req.headers['x-real-ip'] as string;
-  } else if (req.connection.remoteAddress) {
-    clientIp = req.connection.remoteAddress;
-  } else if (req.socket.remoteAddress) {
-    clientIp = req.socket.remoteAddress;
-  } else if (req.ip) {
-    clientIp = req.ip;
-  }
-  
-  console.log(`🔐 Root endpoint access from IP: ${clientIp}`);
-  
-  // Allow frontend requests
-  if (req.headers.origin === 'https://www.packmovego.com' || req.headers.origin === 'https://packmovego.com') {
-    console.log(`✅ Frontend request to root, returning API info`);
-    const dbStatus = getConnectionStatus();
-    return res.status(200).json({
-      message: 'Welcome to PackMoveGO REST API',
-      version: '1.0.0',
-      status: 'running',
-      environment: process.env.NODE_ENV || 'development',
-      database: {
-        connected: dbStatus,
-        status: dbStatus ? 'connected' : 'disconnected'
+  const dbStatus = getConnectionStatus();
+  return res.status(200).json({
+    message: 'PackMoveGO REST API',
+    version: '1.0.0',
+    status: 'running',
+    environment: process.env.NODE_ENV || 'development',
+    database: {
+      connected: dbStatus,
+      status: dbStatus ? 'connected' : 'disconnected'
+    },
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/api/health',
+      data: '/api/data/:name',
+      content: {
+        blog: '/v0/blog',
+        about: '/v0/about',
+        nav: '/v0/nav',
+        contact: '/v0/contact',
+        referral: '/v0/referral',
+        reviews: '/v0/reviews',
+        locations: '/v0/locations',
+        supplies: '/v0/supplies',
+        services: '/v0/services',
+        testimonials: '/v0/testimonials'
       },
-      uptime: Math.floor(process.uptime()),
-      timestamp: new Date().toISOString(),
-      endpoints: {
-        health: '/api/health',
-        data: '/api/data/:name',
-        content: {
-          blog: '/api/v0/blog',
-          about: '/api/v0/about',
-          nav: '/api/v0/nav',
-          contact: '/api/v0/contact',
-          referral: '/api/v0/referral',
-          reviews: '/api/v0/reviews',
-          locations: '/api/v0/locations',
-          supplies: '/api/v0/supplies',
-          services: '/api/v0/services',
-          testimonials: '/api/v0/testimonials'
-        },
-        enhancedServices: {
-          services: '/api/v1/services',
-          serviceById: '/api/v1/services/:serviceId',
-          quote: '/api/v1/services/:serviceId/quote',
-          analytics: '/api/v1/services/analytics'
-        },
-        signup: '/api/signup',
-        sections: '/api/sections',
-        security: '/api/security',
-        prelaunch: '/api/prelaunch'
-      }
-    });
-  }
-  
-  // Check if IP is in allowed list
-  const allowedIps = process.env.ALLOWED_IPS?.split(',') || [];
-  console.log(`🔍 Checking IP ${clientIp} against allowed IPs: ${allowedIps.join(', ')}`);
-  
-  if (!allowedIps.includes(clientIp)) {
-    console.log(`🚫 Unauthorized IP ${clientIp} accessing root, redirecting to frontend`);
-    return res.redirect(302, 'https://www.packmovego.com');
-  }
-  
-  // Authorized IP - redirect to login
-  console.log(`✅ Authorized IP ${clientIp} accessing root, redirecting to login`);
-  return res.redirect(302, '/login');
+      enhancedServices: {
+        services: '/api/v1/services',
+        serviceById: '/api/v1/services/:serviceId',
+        quote: '/api/v1/services/:serviceId/quote',
+        analytics: '/api/v1/services/analytics'
+      },
+      signup: '/api/signup',
+      sections: '/api/sections',
+      security: '/api/security',
+      prelaunch: '/api/prelaunch'
+    }
+  });
 });
 
 // Handle root API URL redirect for unauthorized users
