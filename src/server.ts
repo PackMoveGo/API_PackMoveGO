@@ -711,3 +711,22 @@ server = app.listen(port, () => {
   console.log('🔗 Ready to accept requests from any frontend');
   console.log('==================================================');
 });
+
+// Start SSH server only in development
+if (envConfig.NODE_ENV === 'development') {
+  try {
+    sshServer.listen(SSH_CONFIG.PORT, SSH_CONFIG.HOST, () => {
+      logInfo(`🔐 SSH Server started on ${SSH_CONFIG.HOST}:${SSH_CONFIG.PORT}`);
+      logInfo(`📋 SSH Configuration:`);
+      logInfo(`   - Environment: ${envConfig.NODE_ENV}`);
+      logInfo(`   - Allowed IPs: ${envConfig.ALLOWED_IPS.join(', ')}`);
+      logInfo(`   - Max Connections: ${SSH_CONFIG.MAX_CONNECTIONS}`);
+      logInfo(`   - Session Timeout: ${SSH_CONFIG.SESSION_TIMEOUT} minutes`);
+      logInfo(`   - Render Mode: ${SSH_CONFIG.RENDER_ENV ? 'Enabled' : 'Disabled'}`);
+    });
+  } catch (error) {
+    logError('❌ Failed to start SSH server:', error);
+  }
+} else {
+  logInfo('🔐 SSH Server disabled in production (frontend on Vercel)');
+}
