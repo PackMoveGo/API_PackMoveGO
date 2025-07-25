@@ -210,6 +210,14 @@ app.use(performanceMiddleware);
 app.use(advancedRateLimiter);
 app.use(burstProtection);
 
+// IMPORTANT: Apply CORS first to ensure proper headers are added before authentication
+app.use(cors(corsOptions));
+
+// Basic middleware (after CORS)
+app.use(cookieParser());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 // API Authentication middleware with multiple access methods
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -303,19 +311,8 @@ app.get('/dashboard', (req, res) => {
   });
 });
 
-// Apply authentication middleware globally in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(authMiddleware);
-}
-
 // Apply IP whitelist only to sensitive routes, not globally
 // app.use(ipWhitelist); // Commented out to allow public access
-
-// Basic middleware
-app.use(cors(corsOptions));
-app.use(cookieParser());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request timeout middleware
 app.use((req, res, next) => {
