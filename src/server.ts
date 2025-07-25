@@ -680,7 +680,9 @@ server = app.listen(port, () => {
 });
 
 // Start SSH server only in development
-if (envConfig.NODE_ENV === 'development') {
+console.log(`🔧 Environment check: envConfig.NODE_ENV = "${envConfig.NODE_ENV}", process.env.NODE_ENV = "${process.env.NODE_ENV}"`);
+
+if (envConfig.NODE_ENV === 'development' || process.env.NODE_ENV === 'development') {
   try {
     sshServer.listen(SSH_CONFIG.PORT, SSH_CONFIG.HOST, () => {
       logInfo(`🔐 SSH Server started on ${SSH_CONFIG.HOST}:${SSH_CONFIG.PORT}`);
