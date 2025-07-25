@@ -97,6 +97,31 @@ app.get('/api/health/simple', (req, res) => {
   });
 });
 
+// === IMMEDIATE /v0/ ROUTES (for frontend) ===
+// These must be defined before any middleware that might redirect
+const v0DataFiles = [
+  'blog', 'about', 'nav', 'contact', 'referral', 'reviews', 'locations', 'supplies', 'services', 'testimonials'
+];
+
+app.get(['/v0/:name', '/v0/:name/'], (req, res, next) => {
+  const { name } = req.params;
+  if (v0DataFiles.includes(name)) {
+    try {
+      const data = require(`./data/${name.charAt(0).toUpperCase() + name.slice(1)}.json`);
+      return res.json(data);
+    } catch (e) {
+      try {
+        // Try lowercase fallback
+        const data = require(`./data/${name}.json`);
+        return res.json(data);
+      } catch (err) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+    }
+  }
+  next();
+});
+
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (error) => {
   logError('❌ Uncaught Exception:', error);
@@ -347,29 +372,6 @@ app.use('/api', servicesRoutes);
 
 // === DEVELOPMENT MODE FIXES ===
 if (envConfig.NODE_ENV !== 'production') {
-  // 1. Serve /v0/* routes directly, no redirect
-  const v0DataFiles = [
-    'blog', 'about', 'nav', 'contact', 'referral', 'reviews', 'locations', 'supplies', 'services', 'testimonials'
-  ];
-  app.get(['/v0/:name', '/v0/:name/'], (req, res, next) => {
-    const { name } = req.params;
-    if (v0DataFiles.includes(name)) {
-      try {
-        const data = require(`./data/${name.charAt(0).toUpperCase() + name.slice(1)}.json`);
-        return res.json(data);
-      } catch (e) {
-        try {
-          // Try lowercase fallback
-          const data = require(`./data/${name}.json`);
-          return res.json(data);
-        } catch (err) {
-          return res.status(404).json({ error: 'Not found' });
-        }
-      }
-    }
-    next();
-  });
-
   // 2. Serve / and /login with simple HTML or JSON (no redirect)
   app.get('/', (req, res) => {
     res.status(200).json({
@@ -385,29 +387,6 @@ if (envConfig.NODE_ENV !== 'production') {
 
 // === PRODUCTION MODE FIXES ===
 if (envConfig.NODE_ENV === 'production') {
-  // 1. Serve /v0/* routes directly for frontend
-  const v0DataFiles = [
-    'blog', 'about', 'nav', 'contact', 'referral', 'reviews', 'locations', 'supplies', 'services', 'testimonials'
-  ];
-  app.get(['/v0/:name', '/v0/:name/'], (req, res, next) => {
-    const { name } = req.params;
-    if (v0DataFiles.includes(name)) {
-      try {
-        const data = require(`./data/${name.charAt(0).toUpperCase() + name.slice(1)}.json`);
-        return res.json(data);
-      } catch (e) {
-        try {
-          // Try lowercase fallback
-          const data = require(`./data/${name}.json`);
-          return res.json(data);
-        } catch (err) {
-          return res.status(404).json({ error: 'Not found' });
-        }
-      }
-    }
-    next();
-  });
-
   // 2. Serve root with API info for frontend
   app.get('/', (req, res) => {
     const dbStatus = getConnectionStatus();
@@ -426,16 +405,16 @@ if (envConfig.NODE_ENV === 'production') {
         health: '/api/health',
         data: '/api/data/:name',
         content: {
-          blog: '/api/v0/blog',
-          about: '/api/v0/about',
-          nav: '/api/v0/nav',
-          contact: '/api/v0/contact',
-          referral: '/api/v0/referral',
-          reviews: '/api/v0/reviews',
-          locations: '/api/v0/locations',
-          supplies: '/api/v0/supplies',
-          services: '/api/v0/services',
-          testimonials: '/api/v0/testimonials'
+          blog: '/v0/blog',
+          about: '/v0/about',
+          nav: '/v0/nav',
+          contact: '/v0/contact',
+          referral: '/v0/referral',
+          reviews: '/v0/reviews',
+          locations: '/v0/locations',
+          supplies: '/v0/supplies',
+          services: '/v0/services',
+          testimonials: '/v0/testimonials'
         },
         enhancedServices: {
           services: '/api/v1/services',
@@ -500,9 +479,8 @@ app.use('/*', (req, res, next) => {
     return next();
   }
   
-  // Let /v0/ routes pass through without redirect
+  // Skip /v0/ routes completely - let them be handled by the specific route handlers
   if (req.path.startsWith('/v0/')) {
-    console.log(`✅ Allowing /v0/ route: ${req.path}`);
     return next();
   }
   
