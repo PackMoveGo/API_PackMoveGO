@@ -172,12 +172,16 @@ connectDB().catch((err: Error) => {
 });
 
 // CORS configuration for REST API
+const corsOrigins = Array.isArray(envConfig.CORS_ORIGIN) ? envConfig.CORS_ORIGIN : 
+                   typeof envConfig.CORS_ORIGIN === 'string' ? envConfig.CORS_ORIGIN.split(',').map((s: string) => s.trim()) : 
+                   ['https://www.packmovego.com', 'https://packmovego.com'];
+
 const corsOptions = {
   origin: [
     'http://localhost:5173',
     'http://localhost:5000',
     'http://localhost:5001',
-    ...envConfig.CORS_ORIGIN
+    ...corsOrigins
   ].filter((origin, index, arr) => arr.indexOf(origin) === index), // Remove duplicates
   methods: envConfig.CORS_METHODS,
   allowedHeaders: envConfig.CORS_ALLOWED_HEADERS,
