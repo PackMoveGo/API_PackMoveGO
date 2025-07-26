@@ -242,9 +242,11 @@ app.use(burstProtection);
 // Debug middleware to log headers
 app.use((req, res, next) => {
   console.log(`🔍 CORS Debug: ${req.method} ${req.path}`);
-  console.log(`   Origin: ${req.headers.origin || 'None'}`);
+  console.log(`   Origin (origin): ${req.headers.origin || 'None'}`);
+  console.log(`   Origin (['origin']): ${req.headers['origin'] || 'None'}`);
   console.log(`   Referer: ${req.headers.referer || 'None'}`);
   console.log(`   User-Agent: ${req.headers['user-agent']?.substring(0, 50) || 'None'}`);
+  console.log(`   All headers: ${JSON.stringify(Object.keys(req.headers))}`);
   next();
 });
 
@@ -331,6 +333,9 @@ app.use((req, res, next) => {
       res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
       res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
       res.header('Vary', 'Origin');
+      console.log(`✅ CORS headers set! Response headers now include: ${JSON.stringify(Object.keys(res.getHeaders()))}`);
+    } else {
+      console.log(`❌ IP WHITELIST: No CORS headers set. Origin: "${origin}", type: ${typeof origin}`);
     }
     
     return next();
@@ -349,6 +354,9 @@ app.use((req, res, next) => {
       res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
       res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
       res.header('Vary', 'Origin');
+      console.log(`✅ DOMAIN CORS headers set! Response headers: ${JSON.stringify(Object.keys(res.getHeaders()))}`);
+    } else {
+      console.log(`❌ DOMAIN AUTH: No CORS headers set. Origin: "${origin}", type: ${typeof origin}`);
     }
     
     return next();
