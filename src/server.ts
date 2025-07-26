@@ -96,9 +96,16 @@ app.get('/api/health/simple', (req, res) => {
   });
 });
 
-// MOBILE BYPASS MIDDLEWARE - MUST BE FIRST
-app.use((req: any, res, next) => {
+// === MOBILE-FRIENDLY CORS CONFIGURATION ===
+// This must be applied BEFORE any other middleware to ensure mobile requests work
+
+// Universal CORS middleware for all requests
+app.use((req, res, next) => {
+  const origin = req.headers.origin || req.headers['origin'] || '';
   const userAgent = req.headers['user-agent'] || '';
+  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
+  
+  // Enhanced mobile detection
   const isMobile = userAgent.includes('Mobile') || 
                    userAgent.includes('iPhone') || 
                    userAgent.includes('Android') || 
@@ -106,40 +113,77 @@ app.use((req: any, res, next) => {
                    userAgent.includes('Safari') || 
                    userAgent.includes('Chrome') || 
                    userAgent.includes('Firefox') ||
-                   userAgent.includes('Edge');
+                   userAgent.includes('Edge') ||
+                   userAgent.includes('Opera');
   
-  if (isMobile) {
-    console.log(`📱 MOBILE BYPASS: Allowing mobile request from ${req.ip} - ${userAgent.substring(0, 50)}`);
-    
-    // Set CORS headers for mobile
-    const origin = req.headers.origin || req.headers['origin'] || '';
-    if (origin && origin !== 'null') {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-    res.setHeader('Access-Control-Max-Age', '86400');
-    res.setHeader('Vary', 'Origin');
-    
-    // Handle preflight requests immediately
-    if (req.method === 'OPTIONS') {
-      console.log(`🔄 MOBILE PREFLIGHT: Handling OPTIONS request for ${req.path}`);
-      res.status(200).end();
-      return;
-    }
-    
-    // Mark this as a mobile request for other middleware
-    req.isMobile = true;
+  // Log all requests for debugging
+  console.log(`🌐 REQUEST: ${req.method} ${req.path} from ${clientIp}`);
+  console.log(`   Origin: "${origin || 'None'}"`);
+  console.log(`   User-Agent: "${userAgent.substring(0, 100) || 'None'}"`);
+  console.log(`   Mobile: ${isMobile ? 'Yes' : 'No'}`);
+  console.log(`   Timestamp: ${new Date().toISOString()}`);
+  
+  // UNIVERSAL CORS HEADERS FOR ALL REQUESTS
+  // This ensures mobile devices can access the API regardless of origin
+  if (origin && origin !== 'null') {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    console.log(`✅ CORS: Set origin header for ${origin}`);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    console.log(`✅ CORS: Set wildcard origin header`);
   }
+  
+  // Essential CORS headers for mobile compatibility
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With,Accept,Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.setHeader('Vary', 'Origin');
+  
+  // Handle preflight requests immediately
+  if (req.method === 'OPTIONS') {
+    console.log(`🔄 PREFLIGHT: Handling OPTIONS request for ${req.path}`);
+    res.status(200).end();
+    return;
+  }
+  
+  // Mark mobile requests for other middleware
+  if (isMobile) {
+    (req as any).isMobile = true;
+    console.log(`📱 MOBILE REQUEST DETECTED: ${userAgent.substring(0, 50)}`);
+  }
+  
+  // Log response completion
+  res.on('finish', () => {
+    console.log(`✅ RESPONSE: ${req.method} ${req.path} - Status: ${res.statusCode} - Mobile: ${isMobile ? 'Yes' : 'No'} - Completed at ${new Date().toISOString()}`);
+  });
   
   next();
 });
 
-// === IMMEDIATE /v0/ ROUTES (for frontend) ===
-// These must be defined before any middleware that might redirect
+// === MOBILE-SPECIFIC ENDPOINTS ===
+// These endpoints are designed specifically for mobile devices
+
+// Mobile health check
+app.get('/mobile/health', (req, res) => {
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
+  
+  console.log(`📱 MOBILE HEALTH: Request from ${clientIp} - ${userAgent.substring(0, 50)}`);
+  
+  res.status(200).json({
+    status: 'ok',
+    mobile: true,
+    userAgent: userAgent.substring(0, 100),
+    timestamp: new Date().toISOString(),
+    backend: 'active'
+  });
+});
+
+// === ENHANCED /v0/ ROUTES WITH MOBILE SUPPORT ===
+// These routes now have better mobile compatibility
+
+// Define v0DataFiles array
 const v0DataFiles = [
   'blog', 'about', 'nav', 'contact', 'referral', 'reviews', 'locations', 'supplies', 'services', 'testimonials'
 ];
@@ -151,28 +195,21 @@ app.options(['/v0/:name', '/v0/:name/'], (req, res) => {
   
   console.log(`🔧 /v0/ OPTIONS CORS CHECK: ${req.method} ${req.path} - Origin: "${origin}" - Referer: "${referer}"`);
   
-  // Set CORS headers for packmovego.com and Vercel requests
-  if (origin && (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com' || 
-                 origin.includes('packmovego.com') || origin.includes('vercel.app'))) {
-    console.log(`🔧 /v0/ OPTIONS CORS: Setting headers for origin: ${origin}`);
+  // Set CORS headers for all origins (mobile-friendly)
+  if (origin && origin !== 'null') {
     res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    res.setHeader('Vary', 'Origin');
-    console.log(`✅ /v0/ OPTIONS CORS headers set!`);
-  } else if (referer && (referer.includes('packmovego.com') || referer.includes('vercel.app'))) {
-    console.log(`🔧 /v0/ OPTIONS CORS: Setting headers for referer: ${referer}`);
-    res.setHeader('Access-Control-Allow-Origin', 'https://www.packmovego.com');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    res.setHeader('Vary', 'Origin');
-    console.log(`✅ /v0/ OPTIONS CORS headers set via referer!`);
+    console.log(`✅ /v0/ OPTIONS CORS: Set origin header for ${origin}`);
   } else {
-    console.log(`❌ /v0/ OPTIONS CORS: No headers set. Origin: "${origin}", Referer: "${referer}"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    console.log(`✅ /v0/ OPTIONS CORS: Set wildcard origin header`);
   }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Vary', 'Origin');
   
+  console.log(`✅ /v0/ OPTIONS CORS headers set!`);
   res.status(200).end();
 });
 
@@ -738,48 +775,7 @@ app.get('/api', (req, res) => {
   return res.redirect(302, 'https://www.packmovego.com');
 });
 
-// Detailed health check endpoint (for monitoring)
-app.get('/health/detailed', (req, res) => {
-  console.log(`✅ Health check request: ${req.path} from ${req.ip}`);
-  res.status(200).json({
-    status: 'ok',
-    message: 'Server is running',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// KEEP-ALIVE HEARTBEAT ENDPOINT FOR FRONTEND
-app.get('/api/heartbeat', (req, res) => {
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  
-  console.log(`💓 HEARTBEAT: Frontend keep-alive from ${clientIp}`);
-  console.log(`   User-Agent: "${userAgent.substring(0, 80)}"`);
-  console.log(`   Timestamp: ${new Date().toISOString()}`);
-  
-  res.status(200).json({
-    status: 'alive',
-    message: 'Backend is active and responding',
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor(process.uptime()),
-    memory: process.memoryUsage(),
-    frontend: 'connected'
-  });
-});
-
-// FRONTEND KEEP-ALIVE PING
-app.get('/api/ping', (req, res) => {
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  console.log(`🏓 PING: Frontend ping from ${clientIp} at ${new Date().toISOString()}`);
-  
-  res.status(200).json({
-    pong: true,
-    timestamp: new Date().toISOString(),
-    backend: 'active'
-  });
-});
-
-// MOBILE CONNECTIVITY TEST ENDPOINT
+// MOBILE TEST ENDPOINT - DEFINED EARLY
 app.get('/api/mobile-test', (req, res) => {
   const userAgent = req.headers['user-agent'] || 'Unknown';
   const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
@@ -806,7 +802,7 @@ app.get('/api/mobile-test', (req, res) => {
   });
 });
 
-// MOBILE-FRIENDLY DATA ENDPOINTS (BYPASS ALL RESTRICTIONS)
+// MOBILE DATA ENDPOINTS - DEFINED EARLY
 app.get('/mobile/v0/:name', (req, res) => {
   const { name } = req.params;
   const userAgent = req.headers['user-agent'] || 'Unknown';
@@ -848,18 +844,6 @@ app.get('/mobile/v0/:name', (req, res) => {
   }
   
   res.status(404).json({ error: 'Endpoint not found' });
-});
-
-// SIMPLE MOBILE ENDPOINT
-app.get('/mobile', (req, res) => {
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  console.log(`📱 SIMPLE MOBILE: Request from ${req.ip} - ${userAgent.substring(0, 50)}`);
-  
-  res.status(200).json({
-    message: 'Mobile API working',
-    timestamp: new Date().toISOString(),
-    userAgent: userAgent.substring(0, 50)
-  });
 });
 
 // ULTRA-SIMPLE MOBILE TEST - NO RESTRICTIONS
