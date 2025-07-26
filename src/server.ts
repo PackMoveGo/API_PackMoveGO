@@ -366,9 +366,16 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   const referer = req.headers.referer;
   
+  // Debug logging for all requests
+  console.log(`🔍 AUTH DEBUG: ${req.method} ${req.path}`);
+  console.log(`   Origin: "${origin}"`);
+  console.log(`   Referer: "${referer}"`);
+  console.log(`   User-Agent: "${req.headers['user-agent']?.substring(0, 50) || 'None'}"`);
+  console.log(`   IP: "${req.ip || req.socket.remoteAddress || 'Unknown'}"`);
+  
   // Always allow health checks and public data routes
   if (req.path === '/api/health' || req.path === '/health' || req.path === '/api/health/simple' ||
-      req.path.startsWith('/v0/')) {
+      req.path.startsWith('/v0/') || req.path.startsWith('/api/v0/')) {
     console.log(`✅ Public route allowed: ${req.method} ${req.path}`);
     
     // Set CORS headers for public routes
