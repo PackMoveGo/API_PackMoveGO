@@ -361,173 +361,58 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// API Authentication middleware with multiple access methods
+// MOBILE-FRIENDLY API - Simplified Authentication
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const referer = req.headers.referer;
+  const userAgent = req.headers['user-agent'] || '';
   
   // Debug logging for all requests
-  console.log(`🔍 AUTH DEBUG: ${req.method} ${req.path}`);
+  console.log(`🔍 MOBILE API: ${req.method} ${req.path}`);
   console.log(`   Origin: "${origin || 'None'}"`);
-  console.log(`   Referer: "${referer || 'None'}"`);
-  console.log(`   User-Agent: "${req.headers['user-agent']?.substring(0, 50) || 'None'}"`);
+  console.log(`   User-Agent: "${userAgent.substring(0, 50) || 'None'}"`);
   console.log(`   IP: "${req.ip || req.socket.remoteAddress || 'Unknown'}"`);
-  console.log(`   All Headers: ${JSON.stringify(Object.keys(req.headers))}`);
   
-  // TEMPORARILY ALLOW ALL REQUESTS - REMOVE THIS LATER
-  console.log(`🚨 TEMPORARY: Allowing ALL requests for debugging`);
+  // ALWAYS ALLOW MOBILE REQUESTS
+  if (userAgent.includes('Mobile') || userAgent.includes('iPhone') || userAgent.includes('Android') || 
+      userAgent.includes('Safari') || userAgent.includes('Chrome') || userAgent.includes('Firefox')) {
+    console.log(`✅ MOBILE REQUEST ALLOWED: ${req.method} ${req.path}`);
+    
+    // Set CORS headers for mobile
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Vary', 'Origin');
+    
+    return next();
+  }
+  
+  // Allow all other requests too (for now)
+  console.log(`✅ ALL REQUEST ALLOWED: ${req.method} ${req.path}`);
   return next();
   
-  // Always allow health checks and public data routes
-  if (req.path === '/' || req.path === '/api/health' || req.path === '/health' || req.path === '/api/health/simple' ||
-      req.path.startsWith('/v0/') || req.path.startsWith('/api/v0/') ||
-      req.path.startsWith('/api/data/') || req.path.startsWith('/data/')) {
-    console.log(`✅ Public route allowed: ${req.method} ${req.path}`);
-    
-    // Set CORS headers for ALL requests to public routes
-    const origin = req.headers.origin || req.headers['origin'] || '';
-    const referer = req.headers.referer || req.headers['referer'] || '';
-    
-    // Always set CORS headers for public routes, regardless of origin
-    if (origin) {
-      console.log(`🔧 PUBLIC ROUTE CORS: Setting headers for origin: ${origin}`);
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-      res.setHeader('Vary', 'Origin');
-      console.log(`✅ PUBLIC ROUTE CORS headers set!`);
-    } else {
-      console.log(`🔧 PUBLIC ROUTE CORS: No origin, setting default headers`);
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    }
-    
-    return next();
+  // ALL ROUTES ARE PUBLIC FOR MOBILE
+  console.log(`✅ MOBILE API: All routes public for mobile`);
+  
+  // Set CORS headers for ALL requests
+  const origin = req.headers.origin || req.headers['origin'] || '';
+  
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
   }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Vary', 'Origin');
   
-  // Allow requests from frontend domains (including Vercel)
-  if (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com' ||
-      origin?.includes('vercel.app') ||
-      (referer && (referer.includes('packmovego.com') || referer.includes('vercel.app')))) {
-    console.log(`✅ Frontend domain request allowed: ${req.method} ${req.path} from ${origin || referer}`);
-    
-    // Set CORS headers for frontend requests
-    if (origin) {
-      console.log(`🔧 FRONTEND CORS: Setting headers for ${origin}`);
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-      res.setHeader('Vary', 'Origin');
-      console.log(`✅ FRONTEND CORS headers set!`);
-    }
-    
-    return next();
-  }
-  
-  // Get client IP for whitelist check
-  let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
-                 req.headers['x-real-ip']?.toString() || 
-                 req.headers['cf-connecting-ip']?.toString() ||
-                 req.headers['x-client-ip']?.toString() ||
-                 req.socket.remoteAddress || '';
-  
-  // Remove IPv6 prefix if present
-  if (clientIp.startsWith('::ffff:')) {
-    clientIp = clientIp.substring(7);
-  }
-  
-  // Check API key authentication first (highest priority)
-  if (process.env.API_KEY_ENABLED === 'true') {
-    const apiKey = (Array.isArray(req.headers['x-api-key']) ? req.headers['x-api-key'][0] : req.headers['x-api-key']) || 
-                   ((req.headers['authorization'] as string) || '').replace('Bearer ', '');
-    
-    const validKeys = [
-      process.env.API_KEY_FRONTEND,
-      process.env.API_KEY_ADMIN
-    ].filter(Boolean);
-    
-    if (apiKey && typeof apiKey === 'string' && validKeys.includes(apiKey)) {
-      const keyType = apiKey === process.env.API_KEY_FRONTEND ? 'frontend' : 
-                      apiKey === process.env.API_KEY_ADMIN ? 'admin' : 'unknown';
-      console.log(`✅ Valid ${keyType} API key for ${req.method} ${req.path} from ${clientIp}`);
-      (req as any).apiKeyType = keyType;
-      return next();
-    }
-  }
-  
-  // Check if IP is in whitelist (if enabled)
-  const allowedIps = (process.env.ALLOWED_IPS || '').split(',').map(ip => ip.trim()).filter(Boolean);
-  const isIpWhitelisted = process.env.ENABLE_IP_WHITELIST === 'true' && allowedIps.includes(clientIp);
-  
-  if (isIpWhitelisted) {
-    console.log(`✅ IP whitelisted request allowed: ${req.method} ${req.path} from ${clientIp}`);
-    
-    // CRITICAL: Set CORS headers for whitelisted IPs if they have packmovego.com origin
-    if (origin && (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com' || origin.includes('packmovego.com'))) {
-      console.log(`🔧 IP WHITELIST CORS: Setting headers for ${origin}`);
-      res.header('Access-Control-Allow-Origin', origin);
-      res.header('Access-Control-Allow-Credentials', 'true');
-      res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
-      res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-      res.header('Vary', 'Origin');
-      console.log(`✅ CORS headers set! Response headers now include: ${JSON.stringify(Object.keys(res.getHeaders()))}`);
-    } else {
-      console.log(`❌ IP WHITELIST: No CORS headers set. Origin: "${origin}", type: ${typeof origin}`);
-    }
-    
-    return next();
-  }
-  
-  // Allow frontend requests from packmovego.com and Vercel domains (domain-based)
-  if (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com' ||
-      origin?.includes('vercel.app') ||
-      (referer && (referer.includes('packmovego.com') || referer.includes('vercel.app')))) {
-    console.log(`✅ Frontend domain request allowed: ${req.method} ${req.path} from ${origin || referer}`);
-    
-    // Set CORS headers for domain-based requests
-    if (origin) {
-      console.log(`🔧 DOMAIN AUTH CORS: Setting headers for ${origin}`);
-      res.header('Access-Control-Allow-Origin', origin);
-      res.header('Access-Control-Allow-Credentials', 'true');
-      res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
-      res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-      res.header('Vary', 'Origin');
-      console.log(`✅ DOMAIN CORS headers set! Response headers: ${JSON.stringify(Object.keys(res.getHeaders()))}`);
-    } else {
-      console.log(`❌ DOMAIN AUTH: No CORS headers set. Origin: "${origin}", type: ${typeof origin}`);
-    }
-    
-    return next();
-  }
-  
-  // Block all other requests in production
-  if (process.env.NODE_ENV === 'production') {
-    console.log(`🚫 Blocked request: ${req.method} ${req.path} from ${origin || 'unknown'}, IP: ${clientIp}`);
-    
-    // Allow mobile requests even if they don't have proper headers
-    const userAgent = req.headers['user-agent'] || '';
-    if (userAgent.includes('Mobile') || userAgent.includes('iPhone') || userAgent.includes('Android')) {
-      console.log(`✅ Mobile request allowed: ${req.method} ${req.path}`);
-      return next();
-    }
-    
-    return res.status(403).json({
-      error: 'Access denied',
-      message: 'Access requires: valid API key, whitelisted IP, or packmovego.com domain',
-      timestamp: new Date().toISOString(),
-      authentication: {
-        apiKey: 'Provide x-api-key header or Authorization: Bearer <key>',
-        domains: ['https://www.packmovego.com', 'https://packmovego.com'],
-        ipWhitelist: 'Contact admin for IP whitelist access'
-      }
-    });
-  }
-  
-  // Allow in development
-  next();
+  return next();
 });
 
 // API-only routes - no login/dashboard pages needed
