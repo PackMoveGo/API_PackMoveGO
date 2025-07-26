@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PackMoveGo Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+        .error {
+            border-color: #dc3545;
+            background-color: #f8d7da;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .status {
+            text-align: center;
+            font-size: 18px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>📱 PackMoveGo Debug Test</h1>
+    
+    <div class="container">
+        <h2>API Configuration</h2>
+        <p><strong>Server URL:</strong> <span id="serverUrl">Loading...</span></p>
+        <p><strong>Your IP:</strong> <span id="userIp">Loading...</span></p>
+        <p><strong>User Agent:</strong> <span id="userAgent">Loading...</span></p>
+    </div>
+
+    <div class="container">
+        <h2>Test Endpoints</h2>
+        <button onclick="testHealth()">🏥 Health Check</button>
+        <button onclick="testMobileHealth()">📱 Mobile Health</button>
+        <button onclick="testMobileAPI()">🔗 Mobile API</button>
+        <button onclick="testMobileDebug()">🐛 Mobile Debug</button>
+        <button onclick="testData('about')">📄 About Data</button>
+        <button onclick="testData('Services')">🛠️ Services Data</button>
+        <button onclick="testData('contact')">📞 Contact Data</button>
+    </div>
+
+    <div class="container">
+        <h2>Results</h2>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Auto-detect server URL
+        const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? `http://${window.location.hostname}:3002` 
+            : `https://${window.location.hostname}`;
+        
+        document.getElementById('serverUrl').textContent = serverUrl;
+        document.getElementById('userAgent').textContent = navigator.userAgent;
+
+        // Get user IP
+        fetch('https://api.ipify.org?format=json')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('userIp').textContent = data.ip;
+            })
+            .catch(() => {
+                document.getElementById('userIp').textContent = 'Could not detect IP';
+            });
+
+        function addResult(title, data, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.innerHTML = `<strong>${title}</strong>\n${JSON.stringify(data, null, 2)}`;
+            resultsDiv.appendChild(resultDiv);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        async function makeRequest(endpoint, title) {
+            try {
+                const response = await fetch(`${serverUrl}${endpoint}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    addResult(`✅ ${title}`, data);
+                } else {
+                    addResult(`❌ ${title}`, data, true);
+                }
+            } catch (error) {
+                addResult(`❌ ${title} - Network Error`, {
+                    error: error.message,
+                    endpoint: endpoint,
+                    serverUrl: serverUrl
+                }, true);
+            }
+        }
+
+        function testHealth() {
+            makeRequest('/api/health', 'Health Check');
+        }
+
+        function testMobileHealth() {
+            makeRequest('/mobile/health', 'Mobile Health Check');
+        }
+
+        function testMobileAPI() {
+            makeRequest('/mobile/api', 'Mobile API');
+        }
+
+        function testMobileDebug() {
+            makeRequest('/mobile/debug', 'Mobile Debug Info');
+        }
+
+        function testData(type) {
+            makeRequest(`/mobile/data/${type}`, `${type} Data`);
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testMobileHealth();
+            }, 1000);
+        });
+    </script>
+</body>
+</html> 

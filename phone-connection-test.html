@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phone Connection Test</title>
+    <title>Enhanced Phone Connection Test</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -30,6 +30,12 @@
         }
         .test-button:hover {
             background: #0056b3;
+        }
+        .test-button.success {
+            background: #28a745;
+        }
+        .test-button.error {
+            background: #dc3545;
         }
         .result {
             margin: 10px 0;
@@ -61,24 +67,56 @@
             border-radius: 5px;
             margin: 10px 0;
         }
+        .auto-test {
+            background: #e2e3e5;
+            color: #383d41;
+            border: 1px solid #d6d8db;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online {
+            background: #28a745;
+        }
+        .status-offline {
+            background: #dc3545;
+        }
+        .status-unknown {
+            background: #ffc107;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📱 Phone Connection Test</h1>
+        <h1>📱 Enhanced Phone Connection Test</h1>
         
+        <div class="auto-test">
+            <h3>🔄 Auto-Detection</h3>
+            <button class="test-button" onclick="autoDetectIPs()">Auto-Detect Network IPs</button>
+            <button class="test-button" onclick="testAllEndpoints()">Test All Endpoints</button>
+            <div id="auto-results"></div>
+        </div>
+
         <div class="ip-address">
             <strong>Your Computer's IP Addresses:</strong><br>
-            • Primary: <code>100.69.38.2:4000</code><br>
-            • Secondary: <code>10.1.12.50:4000</code>
+            <div id="detected-ips">Loading...</div>
         </div>
 
         <h2>🔍 Network Test</h2>
         <p>Click these buttons to test if your phone can reach your computer:</p>
         
-        <button class="test-button" onclick="testIP('100.69.38.2')">Test 100.69.38.2:4000</button>
-        <button class="test-button" onclick="testIP('10.1.12.50')">Test 10.1.12.50:4000</button>
-        <button class="test-button" onclick="testLocalhost()">Test localhost:4000</button>
+        <div id="test-buttons">
+            <button class="test-button" onclick="testIP('100.69.38.2')">Test 100.69.38.2:4000</button>
+            <button class="test-button" onclick="testIP('10.1.12.50')">Test 10.1.12.50:4000</button>
+            <button class="test-button" onclick="testLocalhost()">Test localhost:4000</button>
+        </div>
         
         <div id="results"></div>
 
@@ -87,20 +125,17 @@
         
         <div class="result info">
             <strong>Health Check:</strong><br>
-            • http://100.69.38.2:4000/health<br>
-            • http://10.1.12.50:4000/health
+            <div id="health-endpoints">Loading...</div>
         </div>
         
         <div class="result info">
             <strong>Mobile Test:</strong><br>
-            • http://100.69.38.2:4000/mobile-test<br>
-            • http://10.1.12.50:4000/mobile-test
+            <div id="mobile-endpoints">Loading...</div>
         </div>
         
         <div class="result info">
             <strong>Blog Data:</strong><br>
-            • http://100.69.38.2:4000/v0/blog<br>
-            • http://10.1.12.50:4000/v0/blog
+            <div id="blog-endpoints">Loading...</div>
         </div>
 
         <h2>🔧 Troubleshooting</h2>
@@ -109,11 +144,112 @@
             1. Make sure your phone and computer are on the same WiFi<br>
             2. Try turning off your phone's mobile data<br>
             3. Check if your WiFi router blocks device-to-device communication<br>
-            4. Try using a mobile hotspot from your phone
+            4. Try using a mobile hotspot from your phone<br>
+            5. Check firewall settings on your computer
+        </div>
+
+        <h2>📊 Connection Status</h2>
+        <div id="connection-status">
+            <div><span class="status-indicator status-unknown"></span>Mobile API Server: Unknown</div>
+            <div><span class="status-indicator status-unknown"></span>Phone Test Server: Unknown</div>
         </div>
     </div>
 
     <script>
+        let detectedIPs = [];
+
+        // Auto-detect network IPs
+        async function autoDetectIPs() {
+            const resultsDiv = document.getElementById('auto-results');
+            resultsDiv.innerHTML = '<div class="result info">Detecting network interfaces...</div>';
+
+            try {
+                const response = await fetch('/network-info');
+                const data = await response.json();
+                
+                detectedIPs = data.networkIPs || [];
+                
+                // Update IP display
+                const ipDiv = document.getElementById('detected-ips');
+                ipDiv.innerHTML = detectedIPs.map(ip => 
+                    `• <strong>${ip.name}</strong>: <code>${ip.address}</code>`
+                ).join('<br>');
+                
+                // Update test buttons
+                updateTestButtons();
+                
+                // Update endpoints
+                updateEndpoints();
+                
+                resultsDiv.innerHTML = '<div class="result success">✅ Network detection successful!</div>';
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="result error">❌ Network detection failed: ${error.message}</div>`;
+            }
+        }
+
+        // Update test buttons with detected IPs
+        function updateTestButtons() {
+            const buttonsDiv = document.getElementById('test-buttons');
+            buttonsDiv.innerHTML = '';
+            
+            detectedIPs.forEach(ip => {
+                const button = document.createElement('button');
+                button.className = 'test-button';
+                button.textContent = `Test ${ip.address}:4000`;
+                button.onclick = () => testIP(ip.address);
+                buttonsDiv.appendChild(button);
+            });
+            
+            // Add localhost test
+            const localhostButton = document.createElement('button');
+            localhostButton.className = 'test-button';
+            localhostButton.textContent = 'Test localhost:4000';
+            localhostButton.onclick = testLocalhost;
+            buttonsDiv.appendChild(localhostButton);
+        }
+
+        // Update endpoints with detected IPs
+        function updateEndpoints() {
+            const healthDiv = document.getElementById('health-endpoints');
+            const mobileDiv = document.getElementById('mobile-endpoints');
+            const blogDiv = document.getElementById('blog-endpoints');
+            
+            healthDiv.innerHTML = detectedIPs.map(ip => 
+                `• http://${ip.address}:4000/health`
+            ).join('<br>');
+            
+            mobileDiv.innerHTML = detectedIPs.map(ip => 
+                `• http://${ip.address}:4000/mobile-test`
+            ).join('<br>');
+            
+            blogDiv.innerHTML = detectedIPs.map(ip => 
+                `• http://${ip.address}:4000/v0/blog`
+            ).join('<br>');
+        }
+
+        // Test all endpoints automatically
+        async function testAllEndpoints() {
+            const resultsDiv = document.getElementById('auto-results');
+            resultsDiv.innerHTML = '<div class="result info">Testing all endpoints...</div>';
+            
+            const results = [];
+            
+            for (const ip of detectedIPs) {
+                try {
+                    const response = await fetch(`http://${ip.address}:4000/health`);
+                    if (response.ok) {
+                        results.push(`✅ ${ip.address}:4000 - Working`);
+                    } else {
+                        results.push(`❌ ${ip.address}:4000 - HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    results.push(`❌ ${ip.address}:4000 - ${error.message}`);
+                }
+            }
+            
+            resultsDiv.innerHTML = `<div class="result info"><strong>Test Results:</strong><br>${results.join('<br>')}</div>`;
+        }
+
         async function testIP(ip) {
             const resultsDiv = document.getElementById('results');
             const resultDiv = document.createElement('div');
@@ -134,7 +270,8 @@
                         <strong>✅ SUCCESS: ${ip}:4000</strong><br>
                         Status: ${response.status}<br>
                         Message: ${data.message}<br>
-                        Timestamp: ${data.timestamp}
+                        Timestamp: ${data.timestamp}<br>
+                        Connectivity: ${data.connectivity || 'standard'}
                     `;
                 } else {
                     resultDiv.className = 'result error';
@@ -191,6 +328,11 @@
                 `;
             }
         }
+
+        // Auto-detect on page load
+        window.onload = function() {
+            autoDetectIPs();
+        };
     </script>
 </body>
 </html> 

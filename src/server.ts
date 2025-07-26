@@ -354,6 +354,48 @@ app.get('/mobile/test', (req, res) => {
   });
 });
 
+// MOBILE V0 ENDPOINTS - Direct access to data
+app.get('/mobile/v0/:name', (req, res) => {
+  const { name } = req.params;
+  const userAgent = req.headers['user-agent'] || '';
+  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
+  
+  console.log(`📱 MOBILE V0: GET /mobile/v0/${name} from ${clientIp}`);
+  console.log(`   User-Agent: "${userAgent.substring(0, 80)}"`);
+  
+  // UNIVERSAL CORS FOR MOBILE - ALWAYS SET HEADERS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Vary', 'Origin');
+  
+  // Try to load the requested data
+  try {
+    const dataPath = path.join(__dirname, `../src/data/${name}.json`);
+    if (fs.existsSync(dataPath)) {
+      const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+      console.log(`✅ MOBILE V0: Successfully loaded ${name}.json`);
+      res.status(200).json(data);
+    } else {
+      console.log(`❌ MOBILE V0: File not found - ${dataPath}`);
+      res.status(404).json({
+        error: `Data '${name}' not found`,
+        available: ['blog', 'about', 'nav', 'contact', 'referral', 'reviews', 'locations', 'supplies', 'services', 'testimonials'],
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error(`❌ MOBILE V0: Error loading ${name}:`, error);
+    res.status(500).json({
+      error: 'Error loading data',
+      details: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // === ENHANCED /v0/ ROUTES WITH MOBILE SUPPORT ===
 // These routes now have better mobile compatibility
 

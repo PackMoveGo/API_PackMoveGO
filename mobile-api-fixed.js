@@ -1,8 +1,6 @@
 const http = require('http');
-const os = require('os');
-const { exec } = require('child_process');
 
-// Enhanced data for testing
+// Simple data for testing
 const testData = {
   blog: {
     posts: [
@@ -24,49 +22,8 @@ const testData = {
   }
 };
 
-// Get all network interfaces
-function getNetworkIPs() {
-  const interfaces = os.networkInterfaces();
-  const ips = [];
-  
-  Object.keys(interfaces).forEach((name) => {
-    interfaces[name].forEach((interface) => {
-      if (interface.family === 'IPv4' && !interface.internal) {
-        ips.push({
-          name: name,
-          address: interface.address,
-          netmask: interface.netmask
-        });
-      }
-    });
-  });
-  
-  return ips;
-}
-
-// Configure firewall for Node.js
-function configureFirewall() {
-  console.log('🔧 Configuring firewall for Node.js...');
-  
-  exec('sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /usr/local/bin/node', (error) => {
-    if (error) {
-      console.log('⚠️  Firewall config (add):', error.message);
-    } else {
-      console.log('✅ Added Node.js to firewall');
-    }
-  });
-  
-  exec('sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblock /usr/local/bin/node', (error) => {
-    if (error) {
-      console.log('⚠️  Firewall config (unblock):', error.message);
-    } else {
-      console.log('✅ Unblocked Node.js in firewall');
-    }
-  });
-}
-
 const server = http.createServer((req, res) => {
-  // Set CORS headers for mobile - ALWAYS ALLOW
+  // ALWAYS set CORS headers for mobile
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
@@ -92,9 +49,7 @@ const server = http.createServer((req, res) => {
       message: 'Mobile API Server is running!',
       timestamp: new Date().toISOString(),
       ip: clientIP,
-      userAgent: userAgent.substring(0, 100),
-      serverIPs: getNetworkIPs().map(ip => ip.address),
-      connectivity: 'enhanced'
+      userAgent: userAgent.substring(0, 100)
     }));
   } 
   else if (req.url === '/test') {
@@ -105,8 +60,7 @@ const server = http.createServer((req, res) => {
       mobile: true,
       ip: clientIP,
       userAgent: userAgent.substring(0, 100),
-      timestamp: new Date().toISOString(),
-      connectivity: 'enhanced'
+      timestamp: new Date().toISOString()
     }));
   }
   else if (req.url === '/v0/blog') {
@@ -126,31 +80,19 @@ const server = http.createServer((req, res) => {
       ip: clientIP,
       userAgent: userAgent.substring(0, 100),
       timestamp: new Date().toISOString(),
-      endpoints: ['/health', '/test', '/v0/blog', '/v0/services', '/mobile-test', '/network-info'],
-      connectivity: 'enhanced'
-    }));
-  }
-  else if (req.url === '/network-info') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      networkIPs: getNetworkIPs(),
-      hostname: os.hostname(),
-      platform: os.platform(),
-      uptime: os.uptime(),
-      timestamp: new Date().toISOString()
+      endpoints: ['/health', '/test', '/v0/blog', '/v0/services', '/mobile-test']
     }));
   }
   else {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       message: 'PackMoveGO Mobile API Server',
-      version: '2.0.0',
+      version: '1.0.0',
       status: 'active',
       timestamp: new Date().toISOString(),
       ip: clientIP,
-      endpoints: ['/health', '/test', '/v0/blog', '/v0/services', '/mobile-test', '/network-info'],
-      instructions: 'Try /health, /test, or /mobile-test on your phone!',
-      connectivity: 'enhanced'
+      endpoints: ['/health', '/test', '/v0/blog', '/v0/services', '/mobile-test'],
+      instructions: 'Try /health, /test, or /mobile-test on your phone!'
     }));
   }
 });
@@ -169,23 +111,16 @@ process.on('SIGINT', () => {
   });
 });
 
-const PORT = 4000;
-const networkIPs = getNetworkIPs();
-
+const PORT = 8080; // Use a different port
 server.listen(PORT, '0.0.0.0', () => {
-  console.log('🚀 === ENHANCED MOBILE API SERVER ===');
+  console.log('🚀 === MOBILE API SERVER (FIXED) ===');
   console.log(`📡 Server running on port ${PORT}`);
-  console.log('🌐 Network Interfaces:');
-  networkIPs.forEach(ip => {
-    console.log(`   • ${ip.name}: http://${ip.address}:${PORT}`);
-  });
+  console.log(`🌐 Accessible at: http://100.69.38.2:${PORT}`);
+  console.log(`🌐 Also try: http://10.1.12.50:${PORT}`);
   console.log('📱 Test endpoints:');
-  console.log(`   • http://${networkIPs[0]?.address || 'localhost'}:${PORT}/health`);
-  console.log(`   • http://${networkIPs[0]?.address || 'localhost'}:${PORT}/test`);
-  console.log(`   • http://${networkIPs[0]?.address || 'localhost'}:${PORT}/mobile-test`);
-  console.log(`   • http://${networkIPs[0]?.address || 'localhost'}:${PORT}/network-info`);
+  console.log(`   • http://100.69.38.2:${PORT}/health`);
+  console.log(`   • http://100.69.38.2:${PORT}/test`);
+  console.log(`   • http://100.69.38.2:${PORT}/mobile-test`);
+  console.log(`   • http://100.69.38.2:${PORT}/v0/blog`);
   console.log('=====================================');
-  
-  // Configure firewall
-  configureFirewall();
 }); 
