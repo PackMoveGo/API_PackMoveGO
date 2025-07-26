@@ -109,6 +109,40 @@ function getClientIp(req: Request): string {
   return clientIp;
 }
 
+// Enhanced mobile detection function
+function isMobileDevice(userAgent: string): boolean {
+  const mobileKeywords = [
+    'Mobile', 'iPhone', 'Android', 'iPad', 'iPod',
+    'BlackBerry', 'Windows Phone', 'Opera Mini',
+    'IEMobile', 'Mobile Safari', 'Mobile Chrome',
+    'Mobile Firefox', 'Mobile Edge', 'Mobile Opera'
+  ];
+  
+  const mobilePatterns = [
+    /Android/i,
+    /iPhone/i,
+    /iPad/i,
+    /iPod/i,
+    /BlackBerry/i,
+    /Windows Phone/i,
+    /Opera Mini/i,
+    /IEMobile/i,
+    /Mobile/i
+  ];
+  
+  // Check for mobile keywords
+  const hasMobileKeyword = mobileKeywords.some(keyword => 
+    userAgent.toLowerCase().includes(keyword.toLowerCase())
+  );
+  
+  // Check for mobile patterns
+  const hasMobilePattern = mobilePatterns.some(pattern => 
+    pattern.test(userAgent)
+  );
+  
+  return hasMobileKeyword || hasMobilePattern;
+}
+
 // Check if IP is in trusted ranges
 function isTrustedIp(ip: string): boolean {
   // Check Render IPs
@@ -129,30 +163,29 @@ function isTrustedIp(ip: string): boolean {
   return false;
 }
 
-// Main IP whitelist middleware
+// Main IP whitelist middleware - MOBILE-FRIENDLY VERSION
 export function ipWhitelist(req: Request, res: Response, next: NextFunction) {
   const clientIp = getClientIp(req);
   const requestPath = req.path;
   const userAgent = req.get('User-Agent') || 'Unknown';
   
   // Always allow health checks
-  if (requestPath === '/api/health' || requestPath === '/api/health/simple' || requestPath === '/health') {
+  if (requestPath === '/api/health' || 
+      requestPath === '/api/health/simple' || 
+      requestPath === '/health' ||
+      requestPath === '/mobile/health' ||
+      requestPath === '/api/health/detailed') {
     console.log(`✅ Health check allowed from ${clientIp}`);
     return next();
   }
   
-  // Always allow mobile devices
-  const isMobile = userAgent.includes('Mobile') || 
-                   userAgent.includes('iPhone') || 
-                   userAgent.includes('Android') || 
-                   userAgent.includes('iPad') ||
-                   userAgent.includes('Safari') || 
-                   userAgent.includes('Chrome') || 
-                   userAgent.includes('Firefox') ||
-                   userAgent.includes('Edge');
+  // ALWAYS ALLOW MOBILE DEVICES - Enhanced detection
+  const isMobile = isMobileDevice(userAgent);
   
   if (isMobile) {
-    console.log(`📱 Mobile device allowed from ${clientIp} - User-Agent: ${userAgent.substring(0, 50)}`);
+    console.log(`📱 MOBILE DEVICE ALLOWED: ${clientIp} - User-Agent: ${userAgent.substring(0, 80)}`);
+    console.log(`   Path: ${requestPath}`);
+    console.log(`   Mobile Detection: ✅ Confirmed`);
     return next();
   }
   

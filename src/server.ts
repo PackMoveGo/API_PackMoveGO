@@ -198,18 +198,21 @@ app.get('/mobile/health', (req, res) => {
     userAgent: userAgent.substring(0, 100),
     timestamp: new Date().toISOString(),
     backend: 'active',
-    ip: clientIp
+    ip: clientIp,
+    message: 'Mobile API is working!'
   });
 });
 
-// Mobile data endpoints with simplified CORS
-app.get('/mobile/v0/:name', (req, res) => {
-  const { name } = req.params;
+// Mobile API endpoint - ALWAYS ALLOWS MOBILE DEVICES
+app.get('/mobile/api', (req, res) => {
   const userAgent = req.headers['user-agent'] || 'Unknown';
   const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
+  const origin = req.headers.origin || 'Unknown';
   
-  console.log(`📱 MOBILE DATA: ${req.method} /mobile/v0/${name} from ${clientIp}`);
-  console.log(`   User-Agent: "${userAgent.substring(0, 80)}"`);
+  console.log(`📱 MOBILE API: Request from ${clientIp}`);
+  console.log(`   User-Agent: ${userAgent.substring(0, 80)}`);
+  console.log(`   Origin: ${origin}`);
+  console.log(`   Path: ${req.path}`);
   
   // Set CORS headers for mobile - ALWAYS allow
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -219,23 +222,104 @@ app.get('/mobile/v0/:name', (req, res) => {
   res.setHeader('Access-Control-Max-Age', '86400');
   res.setHeader('Vary', 'Origin');
   
-  // Using the global v0DataFiles array defined above
-  if (v0DataFiles.includes(name)) {
-    try {
-      const data = require(`./data/${name.charAt(0).toUpperCase() + name.slice(1)}.json`);
-      return res.json(data);
-    } catch (e) {
-      try {
-        // Try lowercase fallback
-        const data = require(`./data/${name}.json`);
-        return res.json(data);
-      } catch (err) {
-        return res.status(404).json({ error: 'Not found' });
-      }
-    }
-  }
+  res.status(200).json({
+    success: true,
+    message: 'Mobile API endpoint is working!',
+    mobile: true,
+    userAgent: userAgent.substring(0, 100),
+    ip: clientIp,
+    origin: origin,
+    timestamp: new Date().toISOString(),
+    server: 'PackMoveGo API',
+    version: '1.0.0'
+  });
+});
+
+// Mobile debug endpoint - provides detailed information
+app.get('/mobile/debug', (req, res) => {
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
+  const origin = req.headers.origin || 'Unknown';
+  const referer = req.headers.referer || 'Unknown';
   
-  res.status(404).json({ error: 'Endpoint not found' });
+  console.log(`📱 MOBILE DEBUG: Request from ${clientIp}`);
+  console.log(`   User-Agent: ${userAgent}`);
+  console.log(`   Origin: ${origin}`);
+  console.log(`   Referer: ${referer}`);
+  
+  // Set CORS headers for mobile - ALWAYS allow
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Vary', 'Origin');
+  
+  res.status(200).json({
+    success: true,
+    debug: {
+      userAgent: userAgent,
+      ip: clientIp,
+      origin: origin,
+      referer: referer,
+      headers: req.headers,
+      method: req.method,
+      path: req.path,
+      timestamp: new Date().toISOString(),
+      server: 'PackMoveGo API',
+      environment: process.env.NODE_ENV || 'development',
+      port: process.env.PORT || '3000'
+    }
+  });
+});
+
+// Mobile data endpoint - serves your actual data
+app.get('/mobile/data/:type', (req, res) => {
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
+  const dataType = req.params.type;
+  
+  console.log(`📱 MOBILE DATA: Request for ${dataType} from ${clientIp}`);
+  
+  // Set CORS headers for mobile - ALWAYS allow
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Vary', 'Origin');
+  
+  // Try to load the requested data
+  try {
+    const dataPath = path.join(__dirname, `../src/data/${dataType}.json`);
+    if (fs.existsSync(dataPath)) {
+      const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+      res.status(200).json({
+        success: true,
+        data: data,
+        type: dataType,
+        mobile: true,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: `Data type '${dataType}' not found`,
+        availableTypes: ['about', 'blog', 'contact', 'locations', 'nav', 'referral', 'reviews', 'Services', 'supplies', 'Testimonials'],
+        mobile: true,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error(`❌ Error loading data for ${dataType}:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error loading data',
+      error: error instanceof Error ? error.message : String(error),
+      mobile: true,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Simple mobile endpoint
@@ -267,35 +351,6 @@ app.get('/mobile/test', (req, res) => {
     message: 'Mobile test endpoint working',
     timestamp: new Date().toISOString(),
     status: 'ok'
-  });
-});
-
-// Mobile API root endpoint
-app.get('/mobile/api', (req, res) => {
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  
-  console.log(`📱 MOBILE API ROOT: Request from ${clientIp} - ${userAgent.substring(0, 50)}`);
-  
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  
-  res.status(200).json({
-    message: 'PackMoveGO Mobile API',
-    version: '1.0.0',
-    status: 'active',
-    timestamp: new Date().toISOString(),
-    endpoints: {
-      health: '/mobile/health',
-      test: '/mobile/test',
-      data: '/mobile/v0/:name',
-      root: '/mobile'
-    },
-    userAgent: userAgent.substring(0, 50),
-    ip: clientIp
   });
 });
 
@@ -914,8 +969,8 @@ app.get('/api/mobile-test', (req, res) => {
   const origin = req.headers.origin || req.headers['origin'] || 'None';
   
   console.log(`📱 MOBILE TEST: Request from ${clientIp}`);
-  console.log(`   User-Agent: "${userAgent.substring(0, 100)}"`);
-  console.log(`   Origin: "${origin}"`);
+  console.log(`   User-Agent: ${userAgent.substring(0, 100)}`);
+  console.log(`   Origin: ${origin}`);
   console.log(`   Timestamp: ${new Date().toISOString()}`);
   
   const isMobile = userAgent.includes('Mobile') || 

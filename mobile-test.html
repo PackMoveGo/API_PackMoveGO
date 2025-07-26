@@ -3,154 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile API Test</title>
+    <title>PackMoveGo Mobile API Test</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .container {
+            font-family: Arial, sans-serif;
             max-width: 600px;
             margin: 0 auto;
-            background: white;
-            border-radius: 12px;
             padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+        .error {
+            border-color: #dc3545;
+            background-color: #f8d7da;
         }
         h1 {
             color: #333;
             text-align: center;
-            margin-bottom: 30px;
         }
-        .test-button {
-            display: block;
-            width: 100%;
-            padding: 15px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 8px;
-            background: #007AFF;
-            color: white;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .test-button:hover {
-            background: #0056CC;
-        }
-        .test-button:active {
-            background: #004499;
-        }
-        .result {
+        .status {
+            text-align: center;
+            font-size: 18px;
             margin: 20px 0;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 12px;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-        .success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-        .error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-        .loading {
-            background: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-        }
-        .ip-info {
-            background: #e2e3e5;
-            border: 1px solid #d6d8db;
-            color: #383d41;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 14px;
         }
     </style>
 </head>
 <body>
+    <h1>📱 PackMoveGo Mobile API Test</h1>
+    
     <div class="container">
-        <h1>📱 Mobile API Test</h1>
-        
-        <div class="ip-info">
-            <strong>Your Computer's IP Addresses:</strong><br>
-            • WiFi: <span id="wifi-ip">Loading...</span><br>
-            • Local: <span id="local-ip">Loading...</span><br>
-            <br>
-            <strong>To test from your phone:</strong><br>
-            1. Make sure your phone is on the same WiFi network<br>
-            2. Use the WiFi IP address above<br>
-            3. Replace "localhost" with your IP in the URLs below
-        </div>
+        <h2>API Configuration</h2>
+        <p><strong>Server URL:</strong> <span id="serverUrl">Loading...</span></p>
+        <p><strong>Your IP:</strong> <span id="userIp">Loading...</span></p>
+        <p><strong>User Agent:</strong> <span id="userAgent">Loading...</span></p>
+    </div>
 
-        <button class="test-button" onclick="testEndpoint('/health')">Test Health Check</button>
-        <button class="test-button" onclick="testEndpoint('/mobile-test')">Test Mobile Endpoint</button>
-        <button class="test-button" onclick="testEndpoint('/v0/blog')">Test Blog Data</button>
-        <button class="test-button" onclick="testEndpoint('/v0/services')">Test Services Data</button>
-        <button class="test-button" onclick="testEndpoint('/v0/about')">Test About Data</button>
-        
+    <div class="container">
+        <h2>Test Endpoints</h2>
+        <button onclick="testHealth()">🏥 Health Check</button>
+        <button onclick="testMobileHealth()">📱 Mobile Health</button>
+        <button onclick="testMobileAPI()">🔗 Mobile API</button>
+        <button onclick="testMobileDebug()">🐛 Mobile Debug</button>
+        <button onclick="testData('about')">📄 About Data</button>
+        <button onclick="testData('Services')">🛠️ Services Data</button>
+        <button onclick="testData('contact')">📞 Contact Data</button>
+    </div>
+
+    <div class="container">
+        <h2>Results</h2>
         <div id="results"></div>
     </div>
 
     <script>
-        // Get IP addresses
-        async function getIPAddresses() {
-            try {
-                const response = await fetch('https://api.ipify.org?format=json');
-                const data = await response.json();
-                document.getElementById('wifi-ip').textContent = data.ip;
-            } catch (error) {
-                document.getElementById('wifi-ip').textContent = 'Could not detect';
-            }
-            
-            // For local testing, we'll use a placeholder
-            document.getElementById('local-ip').textContent = '10.1.12.50 (from ifconfig)';
-        }
+        // Auto-detect server URL
+        const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? `http://${window.location.hostname}:3002` 
+            : `https://${window.location.hostname}`;
+        
+        document.getElementById('serverUrl').textContent = serverUrl;
+        document.getElementById('userAgent').textContent = navigator.userAgent;
 
-        async function testEndpoint(endpoint) {
+        // Get user IP
+        fetch('https://api.ipify.org?format=json')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('userIp').textContent = data.ip;
+            })
+            .catch(() => {
+                document.getElementById('userIp').textContent = 'Could not detect IP';
+            });
+
+        function addResult(title, data, isError = false) {
             const resultsDiv = document.getElementById('results');
             const resultDiv = document.createElement('div');
-            resultDiv.className = 'result loading';
-            resultDiv.textContent = `Testing ${endpoint}...`;
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.innerHTML = `<strong>${title}</strong>\n${JSON.stringify(data, null, 2)}`;
             resultsDiv.appendChild(resultDiv);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
 
+        async function makeRequest(endpoint, title) {
             try {
-                const response = await fetch(`http://localhost:3001${endpoint}`, {
+                const response = await fetch(`${serverUrl}${endpoint}`, {
                     method: 'GET',
                     headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     }
                 });
-
+                
                 const data = await response.json();
                 
                 if (response.ok) {
-                    resultDiv.className = 'result success';
-                    resultDiv.textContent = `✅ ${endpoint} - SUCCESS (${response.status})\n\n${JSON.stringify(data, null, 2)}`;
+                    addResult(`✅ ${title}`, data);
                 } else {
-                    resultDiv.className = 'result error';
-                    resultDiv.textContent = `❌ ${endpoint} - ERROR (${response.status})\n\n${JSON.stringify(data, null, 2)}`;
+                    addResult(`❌ ${title}`, data, true);
                 }
             } catch (error) {
-                resultDiv.className = 'result error';
-                resultDiv.textContent = `❌ ${endpoint} - CONNECTION FAILED\n\nError: ${error.message}\n\nTo test from your phone:\n1. Replace "localhost" with your computer's IP\n2. Make sure your phone is on the same WiFi network\n3. Try: http://10.1.12.50:3001${endpoint}`;
+                addResult(`❌ ${title} - Network Error`, {
+                    error: error.message,
+                    endpoint: endpoint,
+                    serverUrl: serverUrl
+                }, true);
             }
         }
 
-        // Initialize
-        getIPAddresses();
+        function testHealth() {
+            makeRequest('/api/health', 'Health Check');
+        }
+
+        function testMobileHealth() {
+            makeRequest('/mobile/health', 'Mobile Health Check');
+        }
+
+        function testMobileAPI() {
+            makeRequest('/mobile/api', 'Mobile API');
+        }
+
+        function testMobileDebug() {
+            makeRequest('/mobile/debug', 'Mobile Debug Info');
+        }
+
+        function testData(type) {
+            makeRequest(`/mobile/data/${type}`, `${type} Data`);
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testMobileHealth();
+            }, 1000);
+        });
     </script>
 </body>
 </html> 

@@ -1,52 +1,61 @@
 #!/bin/bash
 
-# Mobile API Test Script
-# This script helps you test your API from your phone
+# PackMoveGo Mobile API Test Script
+# This script tests all mobile API endpoints
 
-echo "📱 === Mobile API Test Script ==="
+echo "📱 PackMoveGo Mobile API Test"
+echo "=============================="
+
+# Get the server URL from command line or use default
+SERVER_URL=${1:-"http://localhost:3002"}
+
+echo "Testing server: $SERVER_URL"
 echo ""
 
-# Get the current IP address
-IP_ADDRESS=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | head -1 | awk '{print $2}')
-echo "🌐 Your IP Address: $IP_ADDRESS"
-echo "🔧 Server Port: 3001"
-echo ""
+# Function to test an endpoint
+test_endpoint() {
+    local endpoint=$1
+    local description=$2
+    
+    echo "🔍 Testing: $description"
+    echo "   Endpoint: $endpoint"
+    
+    response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "$SERVER_URL$endpoint")
+    
+    # Extract HTTP status and response body
+    http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2)
+    response_body=$(echo "$response" | sed '/HTTP_STATUS:/d')
+    
+    if [ "$http_status" = "200" ]; then
+        echo "   ✅ Status: $http_status"
+        echo "   📄 Response: $response_body" | head -c 200
+        if [ ${#response_body} -gt 200 ]; then
+            echo "... (truncated)"
+        fi
+    else
+        echo "   ❌ Status: $http_status"
+        echo "   📄 Response: $response_body"
+    fi
+    echo ""
+}
 
-# Check if server is running
-echo "🔍 Checking if server is running..."
-if curl -s http://localhost:3001/health > /dev/null 2>&1; then
-    echo "✅ Server is running on port 3001"
-else
-    echo "❌ Server is not running on port 3001"
-    echo "   Start your server with: PORT=3001 npx ts-node src/server.ts"
-    exit 1
-fi
+# Test all endpoints
+test_endpoint "/api/health" "Health Check"
+test_endpoint "/mobile/health" "Mobile Health Check"
+test_endpoint "/mobile/api" "Mobile API"
+test_endpoint "/mobile/debug" "Mobile Debug Info"
+test_endpoint "/mobile/data/about" "About Data"
+test_endpoint "/mobile/data/Services" "Services Data"
+test_endpoint "/mobile/data/contact" "Contact Data"
 
+echo "🎉 Mobile API testing complete!"
 echo ""
-echo "📱 === Mobile Testing Instructions ==="
-echo "1. Make sure your phone is on the same WiFi network"
-echo "2. Open your phone's browser"
-echo "3. Navigate to: http://$IP_ADDRESS:3001/mobile-debug.html"
-echo "4. Or scan the QR code on the debug page"
-echo "5. Test the endpoints from your phone"
+echo "To test from your phone:"
+echo "1. Make sure your phone is on the same network as this computer"
+echo "2. Find your computer's IP address: ifconfig | grep 'inet ' | grep -v 127.0.0.1"
+echo "3. Open this URL on your phone: http://YOUR_COMPUTER_IP:3002/mobile-test.html"
 echo ""
-
-echo "🔗 === Quick Test URLs ==="
-echo "Health Check: http://$IP_ADDRESS:3001/health"
-echo "API Health: http://$IP_ADDRESS:3001/api/health"
-echo "Mobile Health: http://$IP_ADDRESS:3001/mobile/health"
-echo "Blog Data: http://$IP_ADDRESS:3001/api/v0/blog"
-echo "Services: http://$IP_ADDRESS:3001/api/v0/services"
-echo "About: http://$IP_ADDRESS:3001/api/v0/about"
-echo ""
-
-echo "🧪 === Running API Tests ==="
-node test-mobile-api.js
-
-echo ""
-echo "🎯 === Next Steps ==="
-echo "• Open http://$IP_ADDRESS:3001/mobile-debug.html on your phone"
-echo "• Test the endpoints using the debug interface"
-echo "• Check the console for any errors"
-echo "• If tests fail, check your firewall settings"
-echo "" 
+echo "Or test directly with these URLs:"
+echo "   Health: $SERVER_URL/mobile/health"
+echo "   API: $SERVER_URL/mobile/api"
+echo "   Debug: $SERVER_URL/mobile/debug" 

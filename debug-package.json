@@ -1,0 +1,23 @@
+{
+  "name": "packmovego-debug-server",
+  "version": "1.0.0",
+  "description": "Debug server for PackMoveGo mobile API testing",
+  "main": "debug-server.js",
+  "scripts": {
+    "start": "node debug-server.js",
+    "dev": "nodemon debug-server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": ["api", "debug", "mobile", "packmovego"],
+  "author": "PackMoveGo Team",
+  "license": "MIT"
+} 
