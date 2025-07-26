@@ -211,6 +211,7 @@ app.use(advancedRateLimiter);
 app.use(burstProtection);
 
 // IMPORTANT: Apply CORS first to ensure proper headers are added before authentication
+// Deployment trigger: 2025-07-26 00:02:00
 app.use(cors(corsOptions));
 
 // Basic middleware (after CORS)
