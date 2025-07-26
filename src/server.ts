@@ -191,18 +191,26 @@ const allowedCorsOrigins = [
 
 const corsOptions = {
   origin: function (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
+    console.log(`🔍 CORS Origin Check: "${origin}"`);
+    
     // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log(`✅ CORS: Allowing request with no origin`);
+      return callback(null, true);
+    }
     
     if (allowedCorsOrigins.includes(origin)) {
+      console.log(`✅ CORS: Allowing origin from whitelist: ${origin}`);
       return callback(null, true);
     }
     
     // Allow any origin for packmovego.com subdomains
     if (origin.includes('packmovego.com')) {
+      console.log(`✅ CORS: Allowing packmovego.com subdomain: ${origin}`);
       return callback(null, true);
     }
     
+    console.log(`❌ CORS: Rejecting origin: ${origin}`);
     callback(new Error('Not allowed by CORS'));
   },
   methods: envConfig.CORS_METHODS || ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -230,7 +238,37 @@ app.use(burstProtection);
 
 // IMPORTANT: Apply CORS first to ensure proper headers are added before authentication
 // Deployment trigger: 2025-07-26 00:02:00
+
+// Debug middleware to log headers
+app.use((req, res, next) => {
+  console.log(`🔍 CORS Debug: ${req.method} ${req.path}`);
+  console.log(`   Origin: ${req.headers.origin || 'None'}`);
+  console.log(`   Referer: ${req.headers.referer || 'None'}`);
+  console.log(`   User-Agent: ${req.headers['user-agent']?.substring(0, 50) || 'None'}`);
+  next();
+});
+
 app.use(cors(corsOptions));
+
+// Fallback CORS middleware if main CORS didn't set headers
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Check if CORS headers are already set
+  if (!res.getHeader('Access-Control-Allow-Origin') && origin) {
+    // Only set for packmovego.com origins
+    if (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com' || origin.includes('packmovego.com')) {
+      console.log(`🔧 FALLBACK CORS: Setting headers for ${origin}`);
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
+      res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+      res.header('Vary', 'Origin');
+    }
+  }
+  
+  next();
+});
 
 // Basic middleware (after CORS)
 app.use(cookieParser());
