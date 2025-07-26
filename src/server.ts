@@ -180,13 +180,31 @@ const corsOrigins = Array.isArray(envConfig.CORS_ORIGIN) ? envConfig.CORS_ORIGIN
                    typeof envConfig.CORS_ORIGIN === 'string' ? envConfig.CORS_ORIGIN.split(',').map((s: string) => s.trim()) : 
                    ['https://www.packmovego.com', 'https://packmovego.com'];
 
+const allowedCorsOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5000',
+  'http://localhost:5001',
+  'https://www.packmovego.com',
+  'https://packmovego.com',
+  ...corsOrigins
+].filter((origin, index, arr) => arr.indexOf(origin) === index);
+
 const corsOptions = {
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:5000',
-    'http://localhost:5001',
-    ...corsOrigins
-  ].filter((origin, index, arr) => arr.indexOf(origin) === index), // Remove duplicates
+  origin: function (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedCorsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Allow any origin for packmovego.com subdomains
+    if (origin.includes('packmovego.com')) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   methods: envConfig.CORS_METHODS || ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: envConfig.CORS_ALLOWED_HEADERS || ['Content-Type', 'Authorization', 'x-api-key'],
   credentials: true,
@@ -266,15 +284,6 @@ app.use((req, res, next) => {
   
   if (isIpWhitelisted) {
     console.log(`✅ IP whitelisted request allowed: ${req.method} ${req.path} from ${clientIp}`);
-    
-    // Ensure CORS headers are set for whitelisted IPs if origin is from packmovego.com
-    if (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com') {
-      res.header('Access-Control-Allow-Origin', origin);
-      res.header('Access-Control-Allow-Credentials', 'true');
-      res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
-      res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    }
-    
     return next();
   }
   
@@ -282,15 +291,6 @@ app.use((req, res, next) => {
   if (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com' ||
       (referer && (referer.includes('packmovego.com')))) {
     console.log(`✅ Frontend domain request allowed: ${req.method} ${req.path} from ${origin || referer}`);
-    
-    // Ensure CORS headers are set for domain-based requests
-    if (origin) {
-      res.header('Access-Control-Allow-Origin', origin);
-      res.header('Access-Control-Allow-Credentials', 'true');
-      res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
-      res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    }
-    
     return next();
   }
   
@@ -690,7 +690,7 @@ server = app.listen(port, () => {
   console.log(`🔒 Security Routes: http://localhost:${port}/api/security`);
   console.log(`🚀 Prelaunch Routes: http://localhost:${port}/api/prelaunch`);
   console.log('🌍 === CORS Configuration ===');
-  console.log(`✅ Origins: ${corsOptions.origin.join(', ')}`);
+  console.log(`✅ Origins: ${allowedCorsOrigins.join(', ')}`);
   console.log(`✅ Methods: ${corsOptions.methods.join(', ')}`);
   console.log(`✅ Headers: ${corsOptions.allowedHeaders.join(', ')}`);
   console.log('⚙️ === Service Status ===');
