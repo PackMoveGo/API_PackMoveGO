@@ -379,7 +379,7 @@ app.use((req, res, next) => {
   return next();
   
   // Always allow health checks and public data routes
-  if (req.path === '/api/health' || req.path === '/health' || req.path === '/api/health/simple' ||
+  if (req.path === '/' || req.path === '/api/health' || req.path === '/health' || req.path === '/api/health/simple' ||
       req.path.startsWith('/v0/') || req.path.startsWith('/api/v0/') ||
       req.path.startsWith('/api/data/') || req.path.startsWith('/data/')) {
     console.log(`✅ Public route allowed: ${req.method} ${req.path}`);
