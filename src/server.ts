@@ -363,8 +363,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // MOBILE-FRIENDLY API - Simplified Authentication
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const referer = req.headers.referer;
+  const origin = req.headers.origin || req.headers['origin'] || '';
   const userAgent = req.headers['user-agent'] || '';
   
   // Debug logging for all requests
@@ -373,35 +372,10 @@ app.use((req, res, next) => {
   console.log(`   User-Agent: "${userAgent.substring(0, 50) || 'None'}"`);
   console.log(`   IP: "${req.ip || req.socket.remoteAddress || 'Unknown'}"`);
   
-  // ALWAYS ALLOW MOBILE REQUESTS
-  if (userAgent.includes('Mobile') || userAgent.includes('iPhone') || userAgent.includes('Android') || 
-      userAgent.includes('Safari') || userAgent.includes('Chrome') || userAgent.includes('Firefox')) {
-    console.log(`✅ MOBILE REQUEST ALLOWED: ${req.method} ${req.path}`);
-    
-    // Set CORS headers for mobile
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    res.setHeader('Vary', 'Origin');
-    
-    return next();
-  }
-  
-  // Allow all other requests too (for now)
-  console.log(`✅ ALL REQUEST ALLOWED: ${req.method} ${req.path}`);
-  return next();
-  
-  // ALL ROUTES ARE PUBLIC FOR MOBILE
-  console.log(`✅ MOBILE API: All routes public for mobile`);
+  // ALL REQUESTS ALLOWED - MOBILE FRIENDLY
+  console.log(`✅ MOBILE API: All requests allowed`);
   
   // Set CORS headers for ALL requests
-  const origin = req.headers.origin || req.headers['origin'] || '';
-  
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else {
