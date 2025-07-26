@@ -359,6 +359,31 @@ app.use((req, res, next) => {
   if (req.path === '/api/health' || req.path === '/health' || req.path === '/api/health/simple' ||
       req.path.startsWith('/v0/')) {
     console.log(`✅ Public route allowed: ${req.method} ${req.path}`);
+    
+    // Set CORS headers for public routes
+    const origin = req.headers.origin || req.headers['origin'];
+    const referer = req.headers.referer || req.headers['referer'];
+    
+    if (origin && (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com' || origin.includes('packmovego.com'))) {
+      console.log(`🔧 PUBLIC ROUTE CORS: Setting headers for origin: ${origin}`);
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+      res.setHeader('Vary', 'Origin');
+      console.log(`✅ PUBLIC ROUTE CORS headers set!`);
+    } else if (referer && referer.includes('packmovego.com')) {
+      console.log(`🔧 PUBLIC ROUTE CORS: Setting headers for referer: ${referer}`);
+      res.setHeader('Access-Control-Allow-Origin', 'https://www.packmovego.com');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+      res.setHeader('Vary', 'Origin');
+      console.log(`✅ PUBLIC ROUTE CORS headers set via referer!`);
+    } else {
+      console.log(`❌ PUBLIC ROUTE CORS: No headers set. Origin: "${origin}", Referer: "${referer}"`);
+    }
+    
     return next();
   }
   
