@@ -1,6 +1,9 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IBooking extends Document {
+  totalWeight?: number;
+  totalVolume?: number;
+  isExpired?: boolean;
   // Basic booking information
   bookingId: string;
   customerId: mongoose.Types.ObjectId;

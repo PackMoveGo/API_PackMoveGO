@@ -198,6 +198,20 @@ export class JWTUtils {
     if (this.verifyRefreshToken(token)) return 'refresh';
     return 'unknown';
   }
+
+  /**
+   * Verify token hash (for password reset, email verification)
+   */
+  static verifyTokenHash(token: string, hash: string): boolean {
+    return this.hashToken(token) === hash;
+  }
+
+  /**
+   * Generate OAuth state token
+   */
+  static generateOAuthStateToken(): string {
+    return this.generateSecureToken(32);
+  }
 }
 
 export default JWTUtils; 

@@ -161,7 +161,7 @@ class OAuthService {
       throw new Error('Failed to get Facebook user info');
     }
 
-    const userData = await response.json();
+    const userData = await response.json() as any;
     
     return {
       id: userData.id,
