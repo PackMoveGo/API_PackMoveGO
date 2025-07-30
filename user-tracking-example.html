@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Tracking Example</title>
+    
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <!-- User Tracking Script -->
+    <script src="frontend-user-tracking.js"></script>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .analytics {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .button:hover {
+            background-color: #0056b3;
+        }
+        
+        .location-info {
+            background-color: #e7f3ff;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 User Tracking Demo</h1>
+    
+    <div id="status" class="status disconnected">
+        <strong>Status:</strong> <span id="statusText">Disconnected</span>
+    </div>
+    
+    <div class="analytics">
+        <h3>📊 Analytics</h3>
+        <div id="analyticsData">
+            <p><strong>Session ID:</strong> <span id="sessionId">-</span></p>
+            <p><strong>User ID:</strong> <span id="userId">-</span></p>
+            <p><strong>Location Permission:</strong> <span id="locationPermission">-</span></p>
+            <p><strong>Last Activity:</strong> <span id="lastActivity">-</span></p>
+            <p><strong>Interaction Count:</strong> <span id="interactionCount">-</span></p>
+        </div>
+    </div>
+    
+    <div class="location-info">
+        <h3>📍 Location Information</h3>
+        <p><strong>Latitude:</strong> <span id="latitude">-</span></p>
+        <p><strong>Longitude:</strong> <span id="longitude">-</span></p>
+        <p><strong>City:</strong> <span id="city">-</span></p>
+        <p><strong>Country:</strong> <span id="country">-</span></p>
+    </div>
+    
+    <div>
+        <h3>🎯 Test Interactions</h3>
+        <button class="button" onclick="testClick()">Test Click</button>
+        <button class="button" onclick="testFormSubmit()">Test Form Submit</button>
+        <button class="button" onclick="testScroll()">Test Scroll</button>
+        <button class="button" onclick="testAPI()">Test API Call</button>
+        <button class="button" onclick="setUserInfo()">Set User Info</button>
+    </div>
+    
+    <div>
+        <h3>📝 Form Example</h3>
+        <form id="testForm" onsubmit="handleFormSubmit(event)">
+            <input type="text" placeholder="Enter your name" required>
+            <input type="email" placeholder="Enter your email" required>
+            <button type="submit" class="button">Submit Form</button>
+        </form>
+    </div>
+    
+    <div>
+        <h3>📄 Page Navigation</h3>
+        <button class="button" onclick="navigateToPage('/about')">Go to About</button>
+        <button class="button" onclick="navigateToPage('/services')">Go to Services</button>
+        <button class="button" onclick="navigateToPage('/contact')">Go to Contact</button>
+    </div>
+
+    <script>
+        // Initialize user tracking
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize the user tracker
+            UserTracker.init('http://localhost:3000', {
+                enableLocation: true,
+                enableInteractions: true,
+                enablePing: true,
+                pingInterval: 30000 // 30 seconds
+            });
+            
+            // Update status when connection changes
+            UserTracker.socket.on('connect', function() {
+                updateStatus('Connected', 'connected');
+                updateAnalytics();
+            });
+            
+            UserTracker.socket.on('disconnect', function() {
+                updateStatus('Disconnected', 'disconnected');
+            });
+            
+            // Update analytics every 5 seconds
+            setInterval(updateAnalytics, 5000);
+            
+            // Update location when available
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    updateLocation(position);
+                });
+            }
+        });
+        
+        function updateStatus(text, className) {
+            document.getElementById('statusText').textContent = text;
+            document.getElementById('status').className = 'status ' + className;
+        }
+        
+        function updateAnalytics() {
+            const analytics = UserTracker.getAnalytics();
+            
+            document.getElementById('sessionId').textContent = analytics.sessionId || '-';
+            document.getElementById('userId').textContent = analytics.userId || '-';
+            document.getElementById('locationPermission').textContent = analytics.locationPermission ? 'Granted' : 'Denied';
+            document.getElementById('lastActivity').textContent = new Date(analytics.lastActivity).toLocaleTimeString();
+            document.getElementById('interactionCount').textContent = analytics.interactionCount || 0;
+        }
+        
+        function updateLocation(position) {
+            document.getElementById('latitude').textContent = position.coords.latitude.toFixed(6);
+            document.getElementById('longitude').textContent = position.coords.longitude.toFixed(6);
+            
+            // Get city/country info
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('city').textContent = data.address?.city || data.address?.town || '-';
+                    document.getElementById('country').textContent = data.address?.country || '-';
+                })
+                .catch(error => {
+                    console.error('Failed to get location info:', error);
+                });
+        }
+        
+        function testClick() {
+            console.log('Test click triggered');
+            // The click will be automatically tracked by the UserTracker
+        }
+        
+        function testFormSubmit() {
+            console.log('Test form submit triggered');
+            // Simulate form submission
+            const form = document.getElementById('testForm');
+            form.dispatchEvent(new Event('submit'));
+        }
+        
+        function testScroll() {
+            console.log('Test scroll triggered');
+            // Simulate scroll
+            window.scrollTo(0, 100);
+        }
+        
+        function testAPI() {
+            console.log('Test API call triggered');
+            // This will be automatically tracked by the UserTracker
+            fetch('https://jsonplaceholder.typicode.com/posts/1')
+                .then(response => response.json())
+                .then(data => console.log('API response:', data))
+                .catch(error => console.error('API error:', error));
+        }
+        
+        function setUserInfo() {
+            const userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            const userEmail = 'user@example.com';
+            const userRole = 'customer';
+            
+            UserTracker.setUserInfo(userId, userEmail, userRole);
+            console.log('User info set:', { userId, userEmail, userRole });
+            updateAnalytics();
+        }
+        
+        function handleFormSubmit(event) {
+            event.preventDefault();
+            console.log('Form submitted');
+            // The form submission will be automatically tracked by the UserTracker
+        }
+        
+        function navigateToPage(page) {
+            // Simulate page navigation
+            console.log('Navigating to:', page);
+            UserTracker.trackPageView(page, window.location.pathname);
+            
+            // Update URL without actual navigation
+            window.history.pushState({}, '', page);
+        }
+        
+        // Example of manual interaction tracking
+        function trackCustomInteraction(type, data) {
+            UserTracker.trackInteraction(type, data);
+        }
+        
+        // Example of getting real-time analytics
+        function getRealTimeAnalytics() {
+            const analytics = UserTracker.getAnalytics();
+            console.log('Real-time analytics:', analytics);
+            return analytics;
+        }
+    </script>
+</body>
+</html> 

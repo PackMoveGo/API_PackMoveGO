@@ -1,0 +1,13 @@
+{
+  "users": {
+    "127.0.0.1": {
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+      "firstSeen": "2025-07-29T13:21:53.916Z",
+      "lastSeen": "2025-07-29T18:43:08.940Z",
+      "visitCount": 597
+    }
+  },
+  "totalVisits": 597,
+  "uniqueUsers": 1
+}

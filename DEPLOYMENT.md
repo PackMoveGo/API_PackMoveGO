@@ -161,6 +161,35 @@ curl https://api.packmovego.com/v0/services
 - **CDN**: Use Cloudflare for static assets
 - **Database**: Optimize MongoDB queries
 - **Monitoring**: Set up logging and analytics
+- **Load Balancing**: Configure auto-scaling and instance management
+
+### 15. Load Balancing
+
+#### Render Load Balancing Features:
+- **Auto-scaling**: 2-5 instances based on load
+- **Health monitoring**: Automatic instance health checks
+- **Session stickiness**: Optional session affinity
+- **Global distribution**: Automatic load distribution
+
+#### Load Balancer Endpoints:
+```bash
+GET /load-balancer/status    # Load balancer status
+GET /load-balancer/instance  # Current instance info
+GET /load-balancer/metrics   # Detailed metrics (admin)
+GET /load-balancer/health    # Health check
+```
+
+#### Configuration:
+```yaml
+# In render.yaml
+scaling:
+  minInstances: 2
+  maxInstances: 5
+  targetConcurrency: 10
+  targetCpuUtilizationPercent: 70
+```
+
+For detailed load balancing setup, see `LOAD_BALANCING.md`.
 
 ---
 

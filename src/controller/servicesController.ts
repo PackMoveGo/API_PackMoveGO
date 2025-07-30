@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
-import { sendSuccess, sendPaginated, sendNotFound, sendError } from '../util/response-formatter';
+import { sendSuccess, sendError, createPaginationResponse, sendNotFoundError } from '../util/response-formatter';
 import { NotFoundError } from '../middleware/error-handler';
 
 interface Service {
@@ -112,7 +112,7 @@ interface AnalyticsData {
   };
 }
 
-const dataDir = path.join(__dirname, '../data');
+const dataDir = path.join(__dirname, '../../../src/data');
 
 // Load services data
 const loadServicesData = (): ServicesData => {
@@ -240,14 +240,14 @@ export const getServices = (req: Request, res: Response) => {
     const priceRanges = ['0-500', '500-1000', '1000+'];
     const durations = ['1-3 hours', '3-6 hours', '6+ hours'];
 
-    sendPaginated(
+    createPaginationResponse(
       res,
       paginatedServices,
       pageNum,
       limitNum,
       filteredServices.length,
       'Services retrieved successfully',
-      req.headers['x-request-id'] as string
+      { requestId: req.headers['x-request-id'] as string }
     );
   } catch (error) {
     res.status(500).json({
@@ -268,7 +268,7 @@ export const getServiceById = (req: Request, res: Response) => {
     const service = servicesData.services.find(s => s.id === serviceId);
     
     if (!service) {
-      return sendNotFound(res, 'Service', req.headers['x-request-id'] as string);
+      return sendNotFoundError(res, 'Service', { requestId: req.headers['x-request-id'] as string });
     }
 
     sendSuccess(res, service, 'Service retrieved successfully', 200, {

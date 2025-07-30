@@ -32,8 +32,11 @@ export const createAdvancedRateLimiter = () => {
         clientIp = clientIp.substring(7);
       }
       
-      
-      
+      // Check if IP is whitelisted
+      const whitelistedIPs = process.env.WHITELISTED_IPS?.split(',') || [];
+      if (whitelistedIPs.includes(clientIp)) {
+        return 1000; // 1000 requests per 15 minutes for whitelisted IPs
+      }
       
       // Default for other requests
       return 100; // 100 requests per 15 minutes
@@ -48,6 +51,22 @@ export const createAdvancedRateLimiter = () => {
       else if (apiKey === process.env.API_KEY_FRONTEND) userType = 'Frontend';
       else if (apiKey) userType = 'API User';
       
+      // Check if IP is whitelisted
+      const whitelistedIPs = process.env.WHITELISTED_IPS?.split(',') || [];
+      let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+                     req.headers['x-real-ip']?.toString() || 
+                     req.headers['cf-connecting-ip']?.toString() ||
+                     req.headers['x-client-ip']?.toString() ||
+                     req.socket.remoteAddress || '';
+      
+      if (clientIp.startsWith('::ffff:')) {
+        clientIp = clientIp.substring(7);
+      }
+      
+      if (whitelistedIPs.includes(clientIp)) {
+        userType = 'Whitelisted IP';
+      }
+      
       return {
         success: false,
         error: 'Rate limit exceeded',
@@ -56,7 +75,7 @@ export const createAdvancedRateLimiter = () => {
         limits: {
           admin: '1000/15min',
           frontend: '500/15min',
-          whitelisted: '300/15min',
+          whitelisted: '1000/15min',
           default: '100/15min'
         },
         timestamp: new Date().toISOString()
@@ -66,11 +85,33 @@ export const createAdvancedRateLimiter = () => {
     standardHeaders: true,
     legacyHeaders: false,
     
-    // Skip rate limiting for health checks
+    // Skip rate limiting for health checks and public content endpoints
     skip: (req: Request) => {
-      return req.path === '/api/health' || 
-             req.path === '/health' || 
-             req.path === '/api/health/simple';
+      // Always skip for v0 endpoints (public content)
+      if (req.path.startsWith('/v0/')) {
+        return true;
+      }
+      
+      // Skip for health checks
+      if (req.path === '/api/health' || 
+          req.path === '/health' || 
+          req.path === '/api/health/simple') {
+        return true;
+      }
+      
+      // Skip for whitelisted IPs
+      const whitelistedIPs = process.env.WHITELISTED_IPS?.split(',') || [];
+      let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+                     req.headers['x-real-ip']?.toString() || 
+                     req.headers['cf-connecting-ip']?.toString() ||
+                     req.headers['x-client-ip']?.toString() ||
+                     req.socket.remoteAddress || '';
+      
+      if (clientIp.startsWith('::ffff:')) {
+        clientIp = clientIp.substring(7);
+      }
+      
+      return whitelistedIPs.includes(clientIp);
     },
     
     // Custom key generator for better tracking
@@ -130,10 +171,31 @@ export const burstProtection = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req: Request) => {
-    // Skip burst protection for health checks
-    return req.path === '/api/health' || 
-           req.path === '/health' || 
-           req.path === '/api/health/simple';
+    // Always skip for v0 endpoints (public content)
+    if (req.path.startsWith('/v0/')) {
+      return true;
+    }
+    
+    // Skip for health checks
+    if (req.path === '/api/health' || 
+        req.path === '/health' || 
+        req.path === '/api/health/simple') {
+      return true;
+    }
+    
+    // Skip for whitelisted IPs
+    const whitelistedIPs = process.env.WHITELISTED_IPS?.split(',') || [];
+    let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+                   req.headers['x-real-ip']?.toString() || 
+                   req.headers['cf-connecting-ip']?.toString() ||
+                   req.headers['x-client-ip']?.toString() ||
+                   req.socket.remoteAddress || '';
+    
+    if (clientIp.startsWith('::ffff:')) {
+      clientIp = clientIp.substring(7);
+    }
+    
+    return whitelistedIPs.includes(clientIp);
   }
 });
 

@@ -1,0 +1,22 @@
+{
+  "watch": ["src/", "config/"],
+  "ext": "ts,js,json",
+  "ignore": [
+    "node_modules/",
+    "data/",
+    "logs/",
+    "*.log",
+    "config/*.js",
+    "config/*.map",
+    "config/*.d.ts",
+    "src/**/*.js",
+    "src/**/*.map",
+    "src/**/*.d.ts",
+    "dist/",
+    "build/",
+    ".git/",
+    "*.test.js",
+    "*.spec.js"
+  ],
+  "exec": "ts-node src/server.ts"
+} 

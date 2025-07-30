@@ -1,0 +1,46 @@
+{
+  "title": "About Pack Go Movers",
+  "subtitle": "Your Trusted Moving Partner in Orange County",
+  "sections": [
+    {
+      "title": "Our Story",
+      "content": "Pack Go Movers was founded in 2024 with a simple mission: to make moving stress-free and efficient for everyone. As a local moving company in Orange County, we understand the unique challenges of moving in this vibrant area."
+    },
+    {
+      "title": "Our Mission",
+      "content": "We believe that moving should be an exciting new chapter in your life, not a stressful experience. Our team of professional movers is dedicated to handling your belongings with care and ensuring a smooth transition to your new home."
+    },
+    {
+      "title": "Why Choose Us",
+      "content": "We offer professional and experienced moving services with competitive pricing, free moving quotes, careful handling of your belongings, and flexible scheduling options. We are fully licensed and insured for your peace of mind."
+    },
+    {
+      "title": "Our Promise",
+      "content": "We promise to treat your home and belongings with the same care we would our own. Our commitment to excellence and customer satisfaction sets us apart in the moving industry."
+    }
+  ],
+  "features": [
+    "Professional and experienced moving team",
+    "Fully licensed and insured",
+    "Competitive pricing",
+    "Free moving quotes",
+    "Careful handling of your belongings",
+    "Flexible scheduling options"
+  ],
+  "stats": {
+    "yearsOfExperience": 5,
+    "movesCompleted": 1000,
+    "customerSatisfaction": "98%",
+    "serviceAreas": "Orange County and surrounding areas"
+  },
+  "team": {
+    "description": "Our team consists of experienced professionals who are passionate about providing exceptional moving services. Each team member is trained in proper moving techniques and customer service excellence.",
+    "values": [
+      "Reliability",
+      "Professionalism",
+      "Care",
+      "Efficiency",
+      "Customer Satisfaction"
+    ]
+  }
+} 

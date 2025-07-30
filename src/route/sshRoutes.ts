@@ -21,12 +21,12 @@ try {
   };
 }
 
-import { authMiddleware } from '../middleware/authMiddleware';
+import { requireAuth } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
 // Get SSH server status
-router.get('/status', authMiddleware, (req, res) => {
+router.get('/status', requireAuth, (req, res) => {
   const activeConnections = activeSessions.size;
   const sessions = Array.from(activeSessions.entries()).map(([id, session]) => ({
     id,
@@ -51,7 +51,7 @@ router.get('/status', authMiddleware, (req, res) => {
 });
 
 // Get SSH configuration
-router.get('/config', authMiddleware, (req, res) => {
+router.get('/config', requireAuth, (req, res) => {
   res.json({
     success: true,
     config: {
@@ -65,7 +65,7 @@ router.get('/config', authMiddleware, (req, res) => {
 });
 
 // Disconnect a specific SSH session
-router.post('/disconnect/:sessionId', authMiddleware, (req, res) => {
+router.post('/disconnect/:sessionId', requireAuth, (req, res) => {
   const { sessionId } = req.params;
   
   if (activeSessions.has(sessionId)) {
@@ -90,7 +90,7 @@ router.post('/disconnect/:sessionId', authMiddleware, (req, res) => {
 });
 
 // Disconnect all SSH sessions
-router.post('/disconnect-all', authMiddleware, (req, res) => {
+router.post('/disconnect-all', requireAuth, (req, res) => {
   const disconnectedCount = activeSessions.size;
   const sessions = Array.from(activeSessions.entries()).map(([id, session]) => ({
     id,
@@ -108,7 +108,7 @@ router.post('/disconnect-all', authMiddleware, (req, res) => {
 });
 
 // Get SSH connection instructions
-router.get('/instructions', authMiddleware, (req, res) => {
+router.get('/instructions', requireAuth, (req, res) => {
   res.json({
     success: true,
     instructions: {

@@ -1,40 +1,56 @@
 services:
-  - type: web
-    name: pack-go-movers-api
+  # Private API service - not accessible from public internet
+  - type: private
+    name: pack-go-movers-api-private
     env: node
     repo: https://github.com/SereneAura2/PackMoveGO-API
     buildCommand: npm install && npm run build
     startCommand: node dist/server.js
+    # Load balancing configuration for private service
+    scaling:
+      minInstances: 2
+      maxInstances: 5
+      targetConcurrency: 10
+      targetCpuUtilizationPercent: 70
+    # Private service configuration
+    port: 3000
+    internalOnly: true
     envVars:
       - key: NODE_ENV
         value: production
+      - key: SERVICE_TYPE
+        value: private
       # PORT is automatically assigned by Render - no need to set it explicitly
       - key: MONGODB_URI
-        value: mongodb+srv://admin:nJPb6TTiYqfjjexI@packmovego.9yxraau.mongodb.net/?retryWrites=true&w=majority&appName=PackMoveGo
+        value: "SET_IN_RENDER_DASHBOARD"
       - key: DATABASE_URL
-        value: prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqd3RfaWQiOjEsInNlY3VyZV9rZXkiOiJza191ZjVadVdRRmR1MFRJQkNNQmVaQjQiLCJhcGlfa2V5IjoiMDFLMEE3NEdZQVgzM0VNWjdFQkU0RjhUWFciLCJ0ZW5hbnRfaWQiOiJiOTQ3NWNmNGM4ZTc0MDI5OTE5Yzg0NDgyYjZmYzQ0ZDkwYmIzMDg4YWY0MDQ4ODhkNmUzMjcwYzAwZDY2N2Q0IiwiaW50ZXJuYWxfc2VjcmV0IjoiODBiNTRmNGYtZGRkMi00YWMzLWI5MjUtNTM0NTlkMDIyMWJmIn0.qC3Edzhp6cKoURWAM5mV2M6zAN24Y-iDbrcJDrhZSXg
+        value: "SET_IN_RENDER_DASHBOARD"
       - key: CORS_ORIGIN
         value: https://www.packmovego.com,https://packmovego.com
       - key: CORS_METHODS
         value: GET,POST,PUT,DELETE,OPTIONS
       - key: CORS_ALLOWED_HEADERS
-        value: Content-Type,Authorization
+        value: Content-Type,Authorization,x-api-key
       - key: JWT_SECRET
-        value: a131fba4ee1366460f9b1da9ae09e620076459338f7248af25eb09c3b9a613fc33e2b8b9a2b931246f74c6e7f7844a66214363d625e65cd138aa92e5d4691ce0
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: JWT_ACCESS_SECRET
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: JWT_REFRESH_SECRET
+        value: "SET_IN_RENDER_DASHBOARD"
       - key: STRIPE_SECRET_KEY
-        value: sk_test_51RQf97G30oP5XDB4K2qGGlvmrVakLAvI9yA1wSv7MOgKHlVP0kWF2kpX1PHkDkUDpAItx02nTTXv8nklBlt47s0k00htF0jNc5
+        value: "SET_IN_RENDER_DASHBOARD"
       - key: STRIPE_PUBLISHABLE_KEY
-        value: pk_test_51RQf97G30oP5XDB4roLF2jQJDPBv164W3ctElUIcrhiixITNJQOpzN24wHxJCSXRPXqNxVXv3E0BmWu6dSnjGlYL00ZqqJn1wS
+        value: "SET_IN_RENDER_DASHBOARD"
       - key: EMAIL_USER
-        value: support@packmovego.com
+        value: "SET_IN_RENDER_DASHBOARD"
       - key: EMAIL_PASSWORD
-        value: rE7WDXudXYCQscG
+        value: "SET_IN_RENDER_DASHBOARD"
       - key: EMAIL_HOST
-        value: 127.0.0.1
+        value: "SET_IN_RENDER_DASHBOARD"
       - key: EMAIL_PORT
-        value: 1025
+        value: "587"
       - key: EMAIL_SECURE
-        value: false
+        value: "true"
       - key: PRODUCTION_DOMAIN
         value: https://www.packmovego.com
       - key: API_URL
@@ -46,12 +62,66 @@ services:
       - key: RATE_LIMIT_WINDOW_MS
         value: 900000
       - key: RATE_LIMIT_MAX_REQUESTS
-        value: 100
+        value: 50
       - key: MAINTENANCE_MODE
         value: false
-
+      # Security Configuration
       - key: API_KEY_ENABLED
+        value: true
+      - key: API_KEY_FRONTEND
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: API_KEY_ADMIN
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: ADMIN_PASSWORD
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: SSH_PASSWORD
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: WEBHOOK_SECRET
+        value: "SET_IN_RENDER_DASHBOARD"
+      # Private Network Configuration
+      - key: PRIVATE_LINK_ENABLED
+        value: true
+      - key: ENABLE_SERVICE_DISCOVERY
+        value: true
+      - key: MAX_OPEN_PORTS
+        value: 75
+      - key: PRIVATE_NETWORK_TIMEOUT
+        value: 30000
+      # Load Balancing Configuration
+      - key: ENABLE_LOAD_BALANCING
+        value: true
+      - key: INSTANCE_ID
+        value: "SET_BY_RENDER"
+      - key: HEALTH_CHECK_INTERVAL
+        value: 30000
+      - key: SESSION_STICKINESS
         value: false
-    healthCheckPath: /api/health/simple
+    healthCheckPath: /api/health
     autoDeploy: true
-    plan: free 
+    plan: starter  # Upgrade from free to starter for load balancing
+
+  # Public gateway service - accessible from internet
+  - type: web
+    name: pack-go-movers-gateway
+    env: node
+    repo: https://github.com/SereneAura2/PackMoveGO-API
+    buildCommand: npm install && npm run build
+    startCommand: node dist/gateway.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SERVICE_TYPE
+        value: gateway
+      - key: PRIVATE_API_URL
+        value: "http://pack-go-movers-api-private:3000"
+      - key: CORS_ORIGIN
+        value: https://www.packmovego.com,https://packmovego.com
+      - key: JWT_SECRET
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: API_KEY_ENABLED
+        value: true
+      - key: API_KEY_FRONTEND
+        value: "SET_IN_RENDER_DASHBOARD"
+    healthCheckPath: /health
+    autoDeploy: true
+    plan: starter 

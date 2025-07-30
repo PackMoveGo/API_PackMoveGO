@@ -1,6 +1,6 @@
 import express from 'express';
 import { performanceMonitor } from '../util/performance-monitor';
-import { authMiddleware } from '../middleware/authMiddleware';
+import { requireAuth } from '../middleware/authMiddleware';
 
 const router = express.Router();
 

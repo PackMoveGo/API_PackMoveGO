@@ -1,613 +1,235 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { connectDB, getConnectionStatus } from './config/database';
+import compression from 'compression';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+
+// Database and core utilities
+import { connectDB, getConnectionStatus } from '../config/database';
+import mongoose from 'mongoose';
+import SocketUtils from './util/socket-utils';
+import JWTUtils from './util/jwt-utils';
+
+// Middleware imports
+import { securityMiddleware } from './middleware/security';
+import { errorHandler, requestIdMiddleware } from './middleware/error-handler';
+import { optionalAuth } from './middleware/authMiddleware';
+import { createCORSJWT } from './middleware/cors-jwt';
+import { performanceMiddleware } from './util/performance-monitor';
+import { advancedRateLimiter, burstProtection } from './util/api-limiter';
+
+// Route imports
 import signupRoutes from './route/signup';
 import sectionRoutes from './route/sectionRoutes';
 import securityRoutes from './route/securityRoutes';
 import prelaunchRoutes from './route/prelaunchRoutes';
 import authRoutes from './route/authRoutes';
-// SSH routes will be imported conditionally
 import sshRoutes from './route/sshRoutes';
-import dotenv from 'dotenv';
-import path from 'path';
-import fs from 'fs';
-import { securityMiddleware, authMiddleware } from './middleware/security';
 import dataRoutes from './route/dataRoutes';
 import servicesRoutes from './route/servicesRoutes';
-
-import serverMonitor from './util/monitor';
-import { performanceMiddleware } from './util/performance-monitor';
 import analyticsRoutes from './route/analyticsRoutes';
-import { advancedRateLimiter, burstProtection } from './util/api-limiter';
-import { backupSystem } from './util/backup-system';
-import { errorHandler, requestIdMiddleware } from './middleware/error-handler';
-import { apiPerformanceMonitor } from './util/api-performance';
-// SSH server completely disabled for production
-// import { startSSHServer } from './ssh/sshServer';
+import privateNetworkRoutes from './route/privateNetworkRoutes';
+import loadBalancerRoutes from './route/loadBalancerRoutes';
+import v0Routes from './routes/v0-routes';
+import bookingRoutes from './route/bookingRoutes';
+import chatRoutes from './route/chatRoutes';
+import paymentRoutes from './route/paymentRoutes';
+
+// Utilities
+import serverMonitor from './util/monitor';
+import loadBalancer from './util/load-balancer';
+import { log, consoleLogger } from './util/console-logger';
+import UserTracker from './util/user-tracker';
 
 // Conditional imports to avoid build errors
 let validateEnvironment: any;
-let logger: any;
-let logInfo: any;
-let logError: any;
-let logWarn: any;
 
 try {
   const envValidation = require('./config/envValidation');
   validateEnvironment = envValidation.validateEnvironment;
 } catch (error) {
-  console.log('⚠️ Environment validation not available');
-  validateEnvironment = () => ({ NODE_ENV: process.env.NODE_ENV || 'development', PORT: parseInt(process.env.PORT || '3000', 10) });
+  consoleLogger.warning('Environment validation not available');
+  validateEnvironment = () => ({ 
+    NODE_ENV: process.env.NODE_ENV || 'development', 
+    PORT: parseInt(process.env.PORT || '3000', 10) 
+  });
 }
 
-
-
-try {
-  const loggerModule = require('./util/logger');
-  logger = loggerModule.default;
-  logInfo = loggerModule.logInfo;
-  logError = loggerModule.logError;
-  logWarn = loggerModule.logWarn;
-} catch (error) {
-  console.log('⚠️ Logger not available');
-  logInfo = console.log;
-  logError = console.error;
-  logWarn = console.warn;
-}
-
-// Load environment variables from config directory
+// Load environment variables
 dotenv.config({ path: path.join(__dirname, '../config/.env') });
 
 // Validate environment configuration
 let envConfig;
 try {
   envConfig = validateEnvironment();
-  logInfo('✅ Environment validation passed');
+  consoleLogger.success('Environment validation passed');
 } catch (error) {
-  logError('❌ Environment validation failed', error);
+  consoleLogger.failure('Environment validation failed', error);
   process.exit(1);
 }
 
+// === SERVER SETUP ===
 const app = express();
-const port = envConfig.PORT;
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: [
+      'https://www.packmovego.com',
+      'https://packmovego.com',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5000',
+      'http://localhost:5001',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5000',
+      'http://127.0.0.1:5001'
+    ],
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
 
-// === IMMEDIATE HEALTH CHECK (for Render) ===
-// This must be defined before any middleware that might block requests
+const port = envConfig.PORT || '3000';
+const localNetwork = process.env.LOCAL_NETWORK || 'localhost';
+
+// === SOCKET.IO CONFIGURATION ===
+consoleLogger.socketInit();
+const socketUtils = new SocketUtils(io);
+const userTracker = new UserTracker(io);
+consoleLogger.socketReady();
+
+// Log connection summary every 5 minutes
+setInterval(() => {
+  const users = socketUtils.getConnectedUsers();
+  const admins = socketUtils.getAdminUsers();
+  if (users.length > 0) {
+    consoleLogger.info('socket', 'Connection Summary', {
+      totalUsers: users.length,
+      adminUsers: admins.length,
+      users: users.map(u => ({ userId: u.userId, email: u.email, role: u.userRole }))
+    });
+  }
+}, 5 * 60 * 1000); // 5 minutes
+
+// === HEALTH CHECK ENDPOINTS ===
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     environment: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString()
-  });
-});
-
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    message: 'Server is running',
-    timestamp: new Date().toISOString()
-  });
-});
-
-app.get('/api/health/simple', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// === MOBILE-FRIENDLY CORS CONFIGURATION ===
-// This must be applied BEFORE any other middleware to ensure mobile requests work
-
-// Universal CORS middleware for all requests
-app.use((req, res, next) => {
-  const origin = req.headers.origin || req.headers['origin'] || '';
-  const userAgent = req.headers['user-agent'] || '';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  
-  // Enhanced mobile detection
-  const isMobile = userAgent.includes('Mobile') || 
-                   userAgent.includes('iPhone') || 
-                   userAgent.includes('Android') || 
-                   userAgent.includes('iPad') ||
-                   userAgent.includes('Safari') || 
-                   userAgent.includes('Chrome') || 
-                   userAgent.includes('Firefox') ||
-                   userAgent.includes('Edge') ||
-                   userAgent.includes('Opera');
-  
-  // Log all requests for debugging
-  console.log(`🌐 REQUEST: ${req.method} ${req.path} from ${clientIp}`);
-  console.log(`   Origin: "${origin || 'None'}"`);
-  console.log(`   User-Agent: "${userAgent.substring(0, 100) || 'None'}"`);
-  console.log(`   Mobile: ${isMobile ? 'Yes' : 'No'}`);
-  console.log(`   Timestamp: ${new Date().toISOString()}`);
-  
-  // UNIVERSAL CORS HEADERS FOR ALL REQUESTS
-  // This ensures mobile devices can access the API regardless of origin
-  if (origin && origin !== 'null') {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    console.log(`✅ CORS: Set origin header for ${origin}`);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    console.log(`✅ CORS: Set wildcard origin header`);
-  }
-  
-  // Essential CORS headers for mobile compatibility
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With,Accept,Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
-  res.setHeader('Vary', 'Origin');
-  
-  // Handle preflight requests immediately
-  if (req.method === 'OPTIONS') {
-    console.log(`🔄 PREFLIGHT: Handling OPTIONS request for ${req.path}`);
-    res.status(200).end();
-    return;
-  }
-  
-  // Mark mobile requests for other middleware
-  if (isMobile) {
-    (req as any).isMobile = true;
-    console.log(`📱 MOBILE REQUEST DETECTED: ${userAgent.substring(0, 50)}`);
-  }
-  
-  // Log response completion
-  res.on('finish', () => {
-    console.log(`✅ RESPONSE: ${req.method} ${req.path} - Status: ${res.statusCode} - Mobile: ${isMobile ? 'Yes' : 'No'} - Completed at ${new Date().toISOString()}`);
-  });
-  
-  next();
-});
-
-// === MOBILE TEST ENDPOINT ===
-// Simple endpoint that works from any device
-app.get('/mobile-test', (req, res) => {
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  
-  console.log(`📱 MOBILE TEST: Request from ${clientIp} - ${userAgent.substring(0, 50)}`);
-  
-  // Set CORS headers for mobile - ALWAYS allow
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Vary', 'Origin');
-  
-  res.status(200).json({
-    status: 'ok',
-    mobile: true,
-    userAgent: userAgent.substring(0, 100),
     timestamp: new Date().toISOString(),
-    backend: 'active',
-    message: 'Mobile test successful',
-    ip: clientIp
-  });
-});
-
-// === STATIC FILE SERVING FOR MOBILE DEBUG ===
-// Serve mobile debug page
-app.get('/mobile-debug.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../mobile-debug.html'));
-});
-
-// Serve phone debug page
-app.get('/phone-debug.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../phone-debug.html'));
-});
-
-// === MOBILE-SPECIFIC ENDPOINTS ===
-// These endpoints are designed specifically for mobile devices
-// IMPORTANT: These must be defined BEFORE the catch-all middleware
-
-// Mobile health check - ULTRA SIMPLE
-app.get('/mobile/health', (req, res) => {
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  
-  console.log(`📱 MOBILE HEALTH: Request from ${clientIp} - ${userAgent.substring(0, 50)}`);
-  
-  // Set CORS headers for mobile - ALWAYS allow
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Vary', 'Origin');
-  
-  res.status(200).json({
-    status: 'ok',
-    mobile: true,
-    userAgent: userAgent.substring(0, 100),
-    timestamp: new Date().toISOString(),
-    backend: 'active',
-    ip: clientIp,
-    message: 'Mobile API is working!'
-  });
-});
-
-// Mobile API endpoint - ALWAYS ALLOWS MOBILE DEVICES
-app.get('/mobile/api', (req, res) => {
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  const origin = req.headers.origin || 'Unknown';
-  
-  console.log(`📱 MOBILE API: Request from ${clientIp}`);
-  console.log(`   User-Agent: ${userAgent.substring(0, 80)}`);
-  console.log(`   Origin: ${origin}`);
-  console.log(`   Path: ${req.path}`);
-  
-  // Set CORS headers for mobile - ALWAYS allow
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Vary', 'Origin');
-  
-  res.status(200).json({
-    success: true,
-    message: 'Mobile API endpoint is working!',
-    mobile: true,
-    userAgent: userAgent.substring(0, 100),
-    ip: clientIp,
-    origin: origin,
-    timestamp: new Date().toISOString(),
-    server: 'PackMoveGo API',
+    uptime: Math.floor(process.uptime()),
     version: '1.0.0'
   });
 });
 
-// Mobile debug endpoint - provides detailed information
-app.get('/mobile/debug', (req, res) => {
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  const origin = req.headers.origin || 'Unknown';
-  const referer = req.headers.referer || 'Unknown';
-  
-  console.log(`📱 MOBILE DEBUG: Request from ${clientIp}`);
-  console.log(`   User-Agent: ${userAgent}`);
-  console.log(`   Origin: ${origin}`);
-  console.log(`   Referer: ${referer}`);
-  
-  // Set CORS headers for mobile - ALWAYS allow
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Vary', 'Origin');
-  
+app.get('/health', (req, res) => {
+  const dbStatus = getConnectionStatus();
+  res.status(200).json({
+    status: 'ok',
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    database: {
+      connected: dbStatus,
+      status: dbStatus ? 'connected' : 'disconnected'
+    },
+    uptime: Math.floor(process.uptime())
+  });
+});
+
+// Connection test endpoint for frontend
+app.get('/api/connection-test', (req, res) => {
   res.status(200).json({
     success: true,
-    debug: {
-      userAgent: userAgent,
-      ip: clientIp,
-      origin: origin,
-      referer: referer,
-      headers: req.headers,
-      method: req.method,
-      path: req.path,
-      timestamp: new Date().toISOString(),
-      server: 'PackMoveGo API',
-      environment: process.env.NODE_ENV || 'development',
-      port: process.env.PORT || '3000'
-    }
-  });
-});
-
-// Mobile data endpoint - serves your actual data
-app.get('/mobile/data/:type', (req, res) => {
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  const dataType = req.params.type;
-  
-  console.log(`📱 MOBILE DATA: Request for ${dataType} from ${clientIp}`);
-  
-  // Set CORS headers for mobile - ALWAYS allow
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Vary', 'Origin');
-  
-  // Try to load the requested data
-  try {
-    const dataPath = path.join(__dirname, `../src/data/${dataType}.json`);
-    if (fs.existsSync(dataPath)) {
-      const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-      res.status(200).json({
-        success: true,
-        data: data,
-        type: dataType,
-        mobile: true,
-        timestamp: new Date().toISOString()
-      });
-    } else {
-      res.status(404).json({
-        success: false,
-        message: `Data type '${dataType}' not found`,
-        availableTypes: ['about', 'blog', 'contact', 'locations', 'nav', 'referral', 'reviews', 'Services', 'supplies', 'Testimonials'],
-        mobile: true,
-        timestamp: new Date().toISOString()
-      });
-    }
-  } catch (error) {
-    console.error(`❌ Error loading data for ${dataType}:`, error);
-    res.status(500).json({
-      success: false,
-      message: 'Error loading data',
-      error: error instanceof Error ? error.message : String(error),
-      mobile: true,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
-// Simple mobile endpoint
-app.get('/mobile', (req, res) => {
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  console.log(`📱 SIMPLE MOBILE: Request from ${clientIp} - ${userAgent.substring(0, 50)}`);
-  
-  // Set CORS headers for mobile - ALWAYS allow
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Vary', 'Origin');
-  
-  res.status(200).json({
-    message: 'Mobile API working',
+    message: 'Connection test successful',
     timestamp: new Date().toISOString(),
-    userAgent: userAgent.substring(0, 50),
-    ip: clientIp
+    cors: 'enabled',
+    endpoints: {
+      health: '/health',
+      nav: '/v0/nav',
+      services: '/v0/services',
+      testimonials: '/v0/testimonials'
+    }
   });
 });
 
-// ULTRA-SIMPLE MOBILE TEST - NO RESTRICTIONS
-app.get('/mobile/test', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+// Auth status endpoint
+app.get('/api/auth/status', (req, res) => {
   res.status(200).json({
-    message: 'Mobile test endpoint working',
-    timestamp: new Date().toISOString(),
-    status: 'ok'
+    success: true,
+    message: 'Auth status endpoint',
+    authenticated: false,
+    timestamp: new Date().toISOString()
   });
 });
 
-// MOBILE V0 ENDPOINTS - Direct access to data
-app.get('/mobile/v0/:name', (req, res) => {
-  const { name } = req.params;
-  const userAgent = req.headers['user-agent'] || '';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  
-  console.log(`📱 MOBILE V0: GET /mobile/v0/${name} from ${clientIp}`);
-  console.log(`   User-Agent: "${userAgent.substring(0, 80)}"`);
-  
-  // UNIVERSAL CORS FOR MOBILE - ALWAYS SET HEADERS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Vary', 'Origin');
-  
-  // Try to load the requested data
-  try {
-    const dataPath = path.join(__dirname, `../src/data/${name}.json`);
-    if (fs.existsSync(dataPath)) {
-      const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-      console.log(`✅ MOBILE V0: Successfully loaded ${name}.json`);
-      res.status(200).json(data);
-    } else {
-      console.log(`❌ MOBILE V0: File not found - ${dataPath}`);
-      res.status(404).json({
-        error: `Data '${name}' not found`,
-        available: ['blog', 'about', 'nav', 'contact', 'referral', 'reviews', 'locations', 'supplies', 'services', 'testimonials'],
-        timestamp: new Date().toISOString()
-      });
-    }
-  } catch (error) {
-    console.error(`❌ MOBILE V0: Error loading ${name}:`, error);
-    res.status(500).json({
-      error: 'Error loading data',
-      details: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
-// === ENHANCED /v0/ ROUTES WITH MOBILE SUPPORT ===
-// These routes now have better mobile compatibility
-
-// Define v0DataFiles array (moved to avoid duplication)
-const v0DataFiles = [
-  'blog', 'about', 'nav', 'contact', 'referral', 'reviews', 'locations', 'supplies', 'services', 'testimonials'
-];
-
-// Handle OPTIONS requests for /v0/ routes (preflight)
-app.options(['/v0/:name', '/v0/:name/'], (req, res) => {
-  const origin = req.headers.origin || req.headers['origin'];
-  const referer = req.headers.referer || req.headers['referer'];
-  
-  console.log(`🔧 /v0/ OPTIONS CORS CHECK: ${req.method} ${req.path} - Origin: "${origin}" - Referer: "${referer}"`);
-  
-  // Set CORS headers for all origins (mobile-friendly)
-  if (origin && origin !== 'null') {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    console.log(`✅ /v0/ OPTIONS CORS: Set origin header for ${origin}`);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    console.log(`✅ /v0/ OPTIONS CORS: Set wildcard origin header`);
-  }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Vary', 'Origin');
-  
-  console.log(`✅ /v0/ OPTIONS CORS headers set!`);
-  res.status(200).end();
-});
-
-app.get(['/v0/:name', '/v0/:name/'], (req, res, next) => {
-  const { name } = req.params;
-  const userAgent = req.headers['user-agent'] || '';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  
-  // MOBILE LOGGING
-  const isMobile = userAgent.includes('Mobile') || userAgent.includes('iPhone') || userAgent.includes('Android');
-  console.log(`📱 /v0/ REQUEST: ${req.method} ${req.path} from ${clientIp}`);
-  console.log(`   Mobile: ${isMobile ? 'Yes' : 'No'}`);
-  console.log(`   User-Agent: "${userAgent.substring(0, 80)}"`);
-  
-  // UNIVERSAL CORS FOR MOBILE - ALWAYS SET HEADERS
-  const origin = req.headers.origin || req.headers['origin'] || '';
-  if (origin && origin !== 'null') {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    console.log(`✅ /v0/ CORS: Set origin header for ${origin}`);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    console.log(`✅ /v0/ CORS: Set wildcard origin header`);
-  }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Vary', 'Origin');
-  
-  console.log(`✅ /v0/ CORS: Universal headers set for mobile`);
-  
-  if (v0DataFiles.includes(name)) {
-    try {
-      const data = require(`./data/${name.charAt(0).toUpperCase() + name.slice(1)}.json`);
-      return res.json(data);
-    } catch (e) {
-      try {
-        // Try lowercase fallback
-        const data = require(`./data/${name}.json`);
-        return res.json(data);
-      } catch (err) {
-        return res.status(404).json({ error: 'Not found' });
-      }
-    }
-  }
-  next();
-});
-
-// Global error handlers to prevent crashes
-process.on('uncaughtException', (error) => {
-  logError('❌ Uncaught Exception:', error);
-  // Don't exit immediately, let the server try to handle it
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  logError('❌ Unhandled Rejection at:', promise);
-  logError('Reason:', reason);
-  // Don't exit immediately, let the server try to handle it
-});
-
-// Graceful shutdown handling
-let server: any;
-
-const gracefulShutdown = (signal: string) => {
-  logInfo(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
-  
-  if (server) {
-    server.close((err: any) => {
-      if (err) {
-        logError('❌ Error during server shutdown:', err);
-        process.exit(1);
-      }
-      
-      logInfo('✅ Server closed successfully');
-      process.exit(0);
-    });
-    
-    // Force close after 10 seconds
-    setTimeout(() => {
-      logError('❌ Could not close connections in time, forcefully shutting down');
-      process.exit(1);
-    }, 10000);
-  } else {
-    process.exit(0);
-  }
-};
-
-// Handle shutdown signals
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-// Connect to MongoDB (optional in development)
-connectDB().catch((err: Error) => {
-  logError('❌ Failed to connect to MongoDB:', err);
-  logWarn('⚠️ Continuing without database connection');
-});
-
-// CORS configuration for REST API
+// === CORS CONFIGURATION ===
 const corsOrigins = Array.isArray(envConfig.CORS_ORIGIN) ? envConfig.CORS_ORIGIN : 
                    typeof envConfig.CORS_ORIGIN === 'string' ? envConfig.CORS_ORIGIN.split(',').map((s: string) => s.trim()) : 
                    ['https://www.packmovego.com', 'https://packmovego.com'];
 
 const allowedCorsOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5000',
-  'http://localhost:5001',
   'https://www.packmovego.com',
   'https://packmovego.com',
-  'https://packmovego-6x8w2t0kw-pack-move-go-frontend.vercel.app',
-  'https://*.vercel.app',
+  'https://api.packmovego.com',
+  `http://${localNetwork}:5173`,
+  `http://${localNetwork}:5000`,
+  `http://${localNetwork}:5001`,
+  `http://${localNetwork}:3000`,
+  `http://localhost:5173`,
+  `http://localhost:5000`,
+  `http://localhost:5001`,
+  `http://localhost:3000`,
+  `http://127.0.0.1:5173`,
+  `http://127.0.0.1:5000`,
+  `http://127.0.0.1:5001`,
+  `http://127.0.0.1:3000`,
+  'https://packmovego-6x8w2t0kw-pack-move-go-frontend.vercel.server',
+  'https://*.vercel.server',
   ...corsOrigins
 ].filter((origin, index, arr) => arr.indexOf(origin) === index);
 
 const corsOptions = {
   origin: function (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
-    console.log(`🔍 CORS Origin Check: "${origin}"`);
-    
-    // Allow requests with no origin (like mobile apps or curl)
+    // Allow requests with no origin (like curl, Postman)
     if (!origin || origin === 'null') {
-      console.log(`✅ CORS: Allowing request with no origin or null origin`);
       return callback(null, true);
     }
     
     // Allow localhost for development
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      console.log(`✅ CORS: Allowing localhost: ${origin}`);
       return callback(null, true);
     }
     
-    // Allow any IP address for mobile testing
+    // Allow IP addresses for testing
     if (origin.match(/^https?:\/\/\d+\.\d+\.\d+\.\d+/)) {
-      console.log(`✅ CORS: Allowing IP address for mobile testing: ${origin}`);
       return callback(null, true);
     }
     
+    // Allow whitelisted origins
     if (allowedCorsOrigins.includes(origin)) {
-      console.log(`✅ CORS: Allowing origin from whitelist: ${origin}`);
       return callback(null, true);
     }
     
-    // Allow any origin for packmovego.com subdomains
+    // Allow packmovego.com subdomains
     if (origin.includes('packmovego.com')) {
-      console.log(`✅ CORS: Allowing packmovego.com subdomain: ${origin}`);
       return callback(null, true);
     }
     
     // Allow Vercel domains
-    if (origin.includes('vercel.app')) {
-      console.log(`✅ CORS: Allowing Vercel domain: ${origin}`);
+    if (origin.includes('vercel.server')) {
       return callback(null, true);
     }
     
-    // For mobile testing, allow all origins
-    console.log(`✅ CORS: Allowing origin for mobile testing: ${origin}`);
+    // Allow all origins
     return callback(null, true);
+    
+    callback(new Error('Not allowed by CORS'));
   },
   methods: envConfig.CORS_METHODS || ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: envConfig.CORS_ALLOWED_HEADERS || ['Content-Type', 'Authorization', 'x-api-key'],
@@ -616,200 +238,164 @@ const corsOptions = {
   preflightContinue: false
 };
 
+// === GRACEFUL SHUTDOWN ===
+let httpServer: any;
 
+const gracefulShutdown = (signal: string) => {
+  consoleLogger.shutdown(signal);
+  
+  if (httpServer) {
+    httpServer.close((err: any) => {
+      if (err) {
+        consoleLogger.error('server', 'Error during server shutdown', err);
+        process.exit(1);
+      }
+      
+      consoleLogger.shutdownComplete();
+      process.exit(0);
+    });
+    
+    setTimeout(() => {
+      consoleLogger.failure('Could not close connections in time, forcefully shutting down');
+      process.exit(1);
+    }, 10000);
+  } else {
+    process.exit(0);
+  }
+};
 
-// Apply security middleware first
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Global error handlers
+process.on('uncaughtException', (error: Error) => {
+  consoleLogger.uncaughtException(error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  consoleLogger.unhandledRejection(reason, promise);
+  process.exit(1);
+});
+
+// === DATABASE CONNECTION ===
+console.log('🚀 Starting database connection...');
+connectDB().then(() => {
+  console.log('✅ Database connection completed');
+  console.log('📊 Connection status:', getConnectionStatus());
+}).catch((err: any) => {
+  consoleLogger.databaseError(err);
+});
+
+// === CORS JWT CONFIGURATION ===
+const corsJWT = createCORSJWT({
+  jwtSecret: process.env.JWT_SECRET || 'your-jwt-secret',
+  allowedOrigins: allowedCorsOrigins,
+  publicEndpoints: [
+    '/health',
+    '/api/health',
+    '/api/health/simple',
+    '/v0/blog',
+    '/v0/about',
+    '/v0/nav',
+    '/v0/contact',
+    '/v0/referral',
+    '/v0/reviews',
+    '/v0/locations',
+    '/v0/supplies',
+    '/v0/services',
+    '/v0/testimonials',
+    '/data/nav',
+    '/data/blog',
+    '/data/about',
+    '/data/contact',
+    '/data/referral',
+    '/data/reviews',
+    '/data/locations',
+    '/data/supplies',
+    '/data/services',
+    '/data/testimonials',
+    '/load-balancer/status',
+    '/load-balancer/instance',
+    '/load-balancer/health',
+    '/v1/services',
+    '/auth/verify',
+    '/',
+    '/api',
+    '/api/'
+  ],
+  optionalAuthEndpoints: [
+    '/auth/login',
+    '/auth/register',
+    '/auth/verify',
+    '/auth/me',
+    '/auth/admin',
+    '/auth/profile',
+    '/auth/users',
+    '/signup',
+    '/prelaunch/register'
+  ]
+});
+
+// === MIDDLEWARE STACK ===
+// Security and performance middleware (order matters)
 app.use(securityMiddleware);
-
-// Apply performance monitoring
+app.use(compression());
 app.use(performanceMiddleware);
-
-// Apply advanced rate limiting
 app.use(advancedRateLimiter);
 app.use(burstProtection);
+app.use(corsJWT.middleware);
+app.use(loadBalancer.middleware);
 
-// IMPORTANT: Apply CORS first to ensure proper headers are added before authentication
-// Deployment trigger: 2025-07-26 00:02:00
-// FORCE DEPLOYMENT: 2025-07-26 00:20:30 - CORS FIX
-
-// Debug middleware to log headers
-app.use((req, res, next) => {
-  console.log(`🔍 CORS Debug: ${req.method} ${req.path}`);
-  console.log(`   Origin (origin): ${req.headers.origin || 'None'}`);
-  console.log(`   Origin (['origin']): ${req.headers['origin'] || 'None'}`);
-  console.log(`   Referer: ${req.headers.referer || 'None'}`);
-  console.log(`   User-Agent: ${req.headers['user-agent']?.substring(0, 50) || 'None'}`);
-  console.log(`   All headers: ${JSON.stringify(Object.keys(req.headers))}`);
-  next();
-});
-
-app.use(cors(corsOptions));
-
-// Global CORS middleware - MOBILE FRIENDLY
-app.use((req, res, next) => {
-  const origin = req.headers.origin || req.headers['origin'];
-  const referer = req.headers.referer || req.headers['referer'];
+// Request logging middleware
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const startTime = Date.now();
   
-  console.log(`🌐 GLOBAL CORS CHECK: ${req.method} ${req.path}`);
-  console.log(`   Origin: "${origin}" (type: ${typeof origin})`);
-  console.log(`   Referer: "${referer}"`);
+  // Only log actual API requests, not static files or health checks
+  const shouldLog = !req.path.includes('.') && req.path !== '/' && req.path !== '/health';
   
-  // Set CORS headers for all requests (mobile-friendly)
-  if (origin && origin !== 'null') {
-    console.log(`🔧 GLOBAL CORS: Setting headers for origin: ${origin}`);
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-    res.header('Access-Control-Max-Age', '86400');
-    res.header('Vary', 'Origin');
-    console.log(`✅ GLOBAL CORS headers set!`);
-  } else {
-    // For requests with no origin or null origin (mobile browsers)
-    console.log(`🔧 GLOBAL CORS: Setting wildcard headers for mobile`);
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-    res.header('Access-Control-Max-Age', '86400');
-    res.header('Vary', 'Origin');
-    console.log(`✅ GLOBAL CORS wildcard headers set!`);
+  if (shouldLog) {
+    consoleLogger.request(req.method, req.path, req.get('Origin'));
   }
   
+  // User tracking is now handled by Socket.IO
+  
+  res.on('finish', () => {
+    const responseTime = Date.now() - startTime;
+    const isError = res.statusCode >= 400;
+    serverMonitor.recordRequest(responseTime, isError);
+    
+    // Only log actual API responses
+    if (shouldLog) {
+      consoleLogger.response(res.statusCode, req.path, responseTime);
+    }
+  });
+  
   next();
 });
 
-// Basic middleware (after CORS)
-app.use(cookieParser());
+// Basic middleware
+app.use(cookieParser(process.env.API_KEY_FRONTEND, {
+  decode: decodeURIComponent
+}));
+
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const clientCookie = req.cookies.server_client;
+  if (!clientCookie || clientCookie !== 'frontend_server') {
+    res.cookie('server_client', 'frontend_server', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    });
+  }
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// COMPREHENSIVE MOBILE-FRIENDLY API - NO RESTRICTIONS
-app.use((req, res, next) => {
-  const origin = req.headers.origin || req.headers['origin'] || '';
-  const userAgent = req.headers['user-agent'] || '';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  
-  // COMPREHENSIVE MOBILE LOGGING
-  console.log(`📱 MOBILE CHECK: ${req.method} ${req.path}`);
-  console.log(`   Origin: "${origin || 'None'}"`);
-  console.log(`   User-Agent: "${userAgent.substring(0, 100) || 'None'}"`);
-  console.log(`   IP: "${clientIp}"`);
-  console.log(`   Timestamp: ${new Date().toISOString()}`);
-  
-  // DETECT MOBILE DEVICES
-  const isMobile = userAgent.includes('Mobile') || 
-                   userAgent.includes('iPhone') || 
-                   userAgent.includes('Android') || 
-                   userAgent.includes('iPad') ||
-                   userAgent.includes('Safari') || 
-                   userAgent.includes('Chrome') || 
-                   userAgent.includes('Firefox') ||
-                   userAgent.includes('Edge');
-  
-  if (isMobile) {
-    console.log(`📱 MOBILE DEVICE DETECTED: ${userAgent.substring(0, 50)}`);
-  }
-  
-  // UNIVERSAL CORS FOR ALL REQUESTS (MOBILE FRIENDLY)
-  console.log(`✅ UNIVERSAL CORS: Setting headers for all requests`);
-  
-  // Always set CORS headers regardless of origin
-  if (origin && origin !== 'null') {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    console.log(`✅ CORS: Set origin header for ${origin}`);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    console.log(`✅ CORS: Set wildcard origin header`);
-  }
-  
-  // Essential CORS headers for mobile
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
-  res.setHeader('Vary', 'Origin');
-  
-  // Handle preflight requests immediately
-  if (req.method === 'OPTIONS') {
-    console.log(`🔄 PREFLIGHT: Handling OPTIONS request for ${req.path}`);
-    res.status(200).end();
-    return;
-  }
-  
-  // Log response completion
-  res.on('finish', () => {
-    console.log(`✅ RESPONSE: ${req.method} ${req.path} - Status: ${res.statusCode} - Mobile: ${isMobile ? 'Yes' : 'No'} - Completed at ${new Date().toISOString()}`);
-  });
-  
-  // ALL REQUESTS ALLOWED - NO AUTHENTICATION
-  console.log(`✅ MOBILE API: All requests allowed - No authentication required`);
-  return next();
-});
-
-// API-only routes - no login/dashboard pages needed
-app.get('/login', (req, res) => {
-  res.status(403).json({
-    error: 'Access denied',
-    message: 'This API is only accessible from packmovego.com',
-    timestamp: new Date().toISOString()
-  });
-});
-
-app.get('/dashboard', (req, res) => {
-  res.status(403).json({
-    error: 'Access denied', 
-    message: 'This API is only accessible from packmovego.com',
-    timestamp: new Date().toISOString()
-  });
-});
-
-
-
-// ENHANCED CORS FOR ALL REQUESTS - KEEPS BACKEND ALIVE
-app.use((req, res, next) => {
-  const requestOrigin = req.headers.origin || req.headers['origin'] || '';
-  const referer = req.headers.referer || req.headers['referer'] || '';
-  const userAgent = req.headers['user-agent'] || '';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  
-  // KEEP-ALIVE LOGGING FOR RENDER
-  console.log(`🌐 KEEP-ALIVE: ${req.method} ${req.path} from ${clientIp}`);
-  console.log(`   Origin: "${requestOrigin || 'None'}"`);
-  console.log(`   Referer: "${referer || 'None'}"`);
-  console.log(`   User-Agent: "${userAgent.substring(0, 80) || 'None'}"`);
-  console.log(`   Timestamp: ${new Date().toISOString()}`);
-  
-  // Set CORS headers for ALL requests to keep backend alive
-  if (requestOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
-    console.log(`✅ CORS: Set origin header for ${requestOrigin}`);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    console.log(`✅ CORS: Set wildcard origin header`);
-  }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Vary', 'Origin');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    console.log(`🔄 PREFLIGHT: Handling OPTIONS request for ${req.path}`);
-    res.status(200).end();
-    return;
-  }
-  
-  // Log response completion
-  res.on('finish', () => {
-    console.log(`✅ RESPONSE: ${req.method} ${req.path} - Status: ${res.statusCode} - Completed at ${new Date().toISOString()}`);
-  });
-  
-  next();
-});
-
 // Request timeout middleware
-app.use((req, res, next) => {
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
   const timeout = setTimeout(() => {
     if (!res.headersSent) {
       console.warn(`⚠️ Request timeout for ${req.method} ${req.path}`);
@@ -819,7 +405,7 @@ app.use((req, res, next) => {
         timestamp: new Date().toISOString()
       });
     }
-  }, 30000); // 30 second timeout
+  }, 30000);
 
   res.on('finish', () => {
     clearTimeout(timeout);
@@ -828,309 +414,240 @@ app.use((req, res, next) => {
   next();
 });
 
-// Request logging middleware with monitoring
-app.use((req, res, next) => {
-  const startTime = Date.now();
-  const timestamp = new Date().toISOString();
-  const method = req.method;
-  const path = req.path;
-  const userAgent = req.get('User-Agent') || 'Unknown';
-  const origin = req.get('Origin') || 'Unknown';
-  const host = req.get('Host') || 'Unknown';
-  const referer = req.get('Referer') || 'Unknown';
-  
-  console.log(`[${timestamp}] ${method} ${path} - Origin: ${origin} - User-Agent: ${userAgent} - Host: ${host} - Referer: ${referer}`);
-  
-  // Record response time and errors
-  res.on('finish', () => {
-    const responseTime = Date.now() - startTime;
-    const isError = res.statusCode >= 400;
-    serverMonitor.recordRequest(responseTime, isError);
-    
-    // Log response details for debugging
-    if (res.statusCode >= 400) {
-      console.log(`❌ ${method} ${path} - Status: ${res.statusCode} - Time: ${responseTime}ms`);
-    }
-  });
-  
+// === JWT MIDDLEWARE ===
+app.use(optionalAuth);
+
+// === API ROUTES ===
+// Core business routes
+app.use('/auth', authRoutes);
+app.use('/signup', signupRoutes);
+app.use('/sections', sectionRoutes);
+app.use('/security', securityRoutes);
+app.use('/prelaunch', prelaunchRoutes);
+
+// Handle /api/v0/* requests and redirect to /v0/*
+app.use('/api/v0', (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Remove /api prefix and forward to v0 routes
+  const newUrl = req.url.replace('/api/v0', '/v0');
+  console.log(`🔄 API redirect: ${req.url} -> ${newUrl}`);
+  req.url = newUrl;
   next();
 });
 
-// Health check endpoint - optimized for Render (detailed version)
-app.get('/api/health/detailed', (req, res) => {
-  console.log(`✅ API Health check request: ${req.path} from ${req.ip}`);
-  
-  // Set a timeout for health checks to prevent hanging
-  const healthCheckTimeout = setTimeout(() => {
-    if (!res.headersSent) {
-      console.warn('⚠️ Health check timeout, sending basic response');
-      res.status(200).json({
-        status: 'ok',
-        environment: process.env.NODE_ENV || 'development',
-        timestamp: new Date().toISOString()
-      });
-    }
-  }, 5000); // 5 second timeout
-  
-  try {
-    // Simple, fast response for Render health checks
-    const response = {
-      status: 'ok',
-      environment: process.env.NODE_ENV || 'development',
-      serverPort: port,
-      uptime: Math.floor(process.uptime()),
-      timestamp: new Date().toISOString(),
-      // Only include detailed metrics if not a Render health check
-      ...(req.get('User-Agent') !== 'Render/1.0' && {
-        memory: process.memoryUsage(),
-        database: {
-          connected: getConnectionStatus(),
-          status: getConnectionStatus() ? 'connected' : 'disconnected'
-        },
-        requests: serverMonitor.getMetrics().requests
-      })
-    };
-    
-    clearTimeout(healthCheckTimeout);
-    res.status(200).json(response);
-  } catch (error) {
-    console.error('❌ Health check error:', error);
-    clearTimeout(healthCheckTimeout);
-    // Even if there's an error, return a basic health response
-    res.status(200).json({
-      status: 'ok',
-      environment: process.env.NODE_ENV || 'development',
-      timestamp: new Date().toISOString()
-    });
-  }
+// Specific handler for common frontend requests
+app.get('/api/v0/nav.json', (req: express.Request, res: express.Response) => {
+  console.log(`📡 Frontend nav request: ${req.method} ${req.path} from ${req.ip}`);
+  // Redirect to the correct endpoint
+  return res.redirect('/v0/nav');
 });
 
-// API Routes with proper status codes
-app.use('/api/auth', authRoutes);
-app.use('/api/ssh', sshRoutes); // SSH routes will be imported conditionally
+// V0 content routes
+app.use('/v0', v0Routes);
 
-// All routes now protected by global auth middleware in production
-app.use('/api/signup', signupRoutes);
-app.use('/api/sections', sectionRoutes);
-app.use('/api/security', securityRoutes);
-app.use('/api/prelaunch', prelaunchRoutes);
+// Uber-like application routes
+app.use('/v1/bookings', bookingRoutes);
+app.use('/v1/chat', chatRoutes);
+app.use('/v1/payments', paymentRoutes);
 
-// Public data routes that frontend can access without authentication
-app.use('/api', dataRoutes);
+// Infrastructure routes
+app.use('/ssh', sshRoutes);
+app.use('/internal', privateNetworkRoutes);
+app.use('/load-balancer', loadBalancerRoutes);
 
-// Enhanced services API routes
-app.use('/api', servicesRoutes);
+// Data and services routes (mounted after specific routes to avoid conflicts)
+app.use('/data', dataRoutes);
+app.use('/services', servicesRoutes);
+app.use('/analytics', analyticsRoutes);
 
-// Analytics and monitoring routes
-app.use('/api', analyticsRoutes);
-
-// === DEVELOPMENT MODE FIXES ===
-if (envConfig.NODE_ENV !== 'production') {
-  // 2. Serve / and /login with simple HTML or JSON (no redirect)
-  app.get('/', (req, res) => {
-    res.status(200).json({
-      message: 'Development API Root',
-      status: 'ok',
-      environment: envConfig.NODE_ENV
-    });
-  });
-  app.get('/login', (req, res) => {
-    res.status(200).send('<h1>Development Login Page</h1><p>This is a placeholder login page for development mode.</p>');
-  });
-}
-
-// === PRODUCTION MODE FIXES ===
-if (envConfig.NODE_ENV === 'production') {
-  // 2. Serve root with API info for frontend
-  app.get('/', (req, res) => {
-    const dbStatus = getConnectionStatus();
-    return res.status(200).json({
-      message: 'Welcome to PackMoveGO REST API',
-      version: '1.0.0',
-      status: 'running',
-      environment: 'production',
-      database: {
-        connected: dbStatus,
-        status: dbStatus ? 'connected' : 'disconnected'
+// === ROOT ENDPOINTS ===
+app.get('/', (req: express.Request, res: express.Response) => {
+  const dbStatus = getConnectionStatus();
+  return res.status(200).json({
+    message: 'Welcome to PackMoveGO REST API',
+    version: '1.0.0',
+    status: 'running',
+    environment: envConfig.NODE_ENV,
+    database: {
+      connected: dbStatus,
+      status: dbStatus ? 'connected' : 'disconnected'
+    },
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/health',
+      data: '/data/:name',
+      content: {
+        blog: '/v0/blog',
+        about: '/v0/about',
+        nav: '/v0/nav',
+        contact: '/v0/contact',
+        referral: '/v0/referral',
+        reviews: '/v0/reviews',
+        locations: '/v0/locations',
+        supplies: '/v0/supplies',
+        services: '/v0/services',
+        testimonials: '/v0/testimonials'
       },
-      uptime: Math.floor(process.uptime()),
-      timestamp: new Date().toISOString(),
-      endpoints: {
-        health: '/api/health',
-        data: '/api/data/:name',
-        content: {
-          blog: '/v0/blog',
-          about: '/v0/about',
-          nav: '/v0/nav',
-          contact: '/v0/contact',
-          referral: '/v0/referral',
-          reviews: '/v0/reviews',
-          locations: '/v0/locations',
-          supplies: '/v0/supplies',
-          services: '/v0/services',
-          testimonials: '/v0/testimonials'
-        },
-        enhancedServices: {
-          services: '/api/v1/services',
-          serviceById: '/api/v1/services/:serviceId',
-          quote: '/api/v1/services/:serviceId/quote',
-          analytics: '/api/v1/services/analytics'
-        },
-        signup: '/api/signup',
-        sections: '/api/sections',
-        security: '/api/security',
-        prelaunch: '/api/prelaunch'
-      }
-    });
+      enhancedServices: {
+        services: '/v1/services',
+        serviceById: '/v1/services/:serviceId',
+        quote: '/v1/services/:serviceId/quote',
+        analytics: '/v1/services/analytics'
+      },
+      signup: '/signup',
+      sections: '/sections',
+      security: '/security',
+      prelaunch: '/prelaunch'
+    }
   });
-}
+});
 
-
-
-
-
-// Handle root API URL redirect for unauthorized users
-app.get('/api', (req, res) => {
-  const clientIp = req.ip || req.socket.remoteAddress || '';
+app.get('/api', (req: express.Request, res: express.Response) => {
   const origin = req.headers.origin;
-  const userAgent = req.headers['user-agent'] || '';
   
-  // Check if this is a frontend request
   if (origin === 'https://www.packmovego.com' || origin === 'https://packmovego.com') {
     return res.json({
       message: 'PackMoveGO REST API',
       status: 'running',
       endpoints: {
-        health: '/api/health',
-        data: '/api/v0/:name',
-        content: '/api/v0/*'
+        health: '/health',
+        data: '/v0/:name',
+        content: '/v0/*'
       }
     });
   }
   
-  // Check if this is a mobile request
-  const isMobile = userAgent.includes('Mobile') || userAgent.includes('iPhone') || userAgent.includes('Android');
-  if (isMobile) {
-    console.log(`📱 MOBILE API ACCESS: ${userAgent.substring(0, 50)} from ${clientIp}`);
-    return res.json({
-      message: 'PackMoveGO Mobile API',
-      status: 'running',
-      mobile: true,
-      endpoints: {
-        nav: '/v0/nav',
-        services: '/v0/services',
-        testimonials: '/v0/testimonials',
-        heartbeat: '/api/heartbeat'
-      }
-    });
-  }
-  
-  // Redirect unauthorized users to frontend
-  console.log(`🚫 Unauthorized access to API root from IP: ${clientIp}, redirecting to frontend`);
+  console.log(`🚫 Unauthorized access to API root from IP: ${req.ip}, redirecting to frontend`);
   return res.redirect(302, 'https://www.packmovego.com');
 });
 
-// MOBILE TEST ENDPOINT - DEFINED EARLY
-app.get('/api/mobile-test', (req, res) => {
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  const clientIp = req.ip || req.socket.remoteAddress || 'Unknown';
-  const origin = req.headers.origin || req.headers['origin'] || 'None';
-  
-  console.log(`📱 MOBILE TEST: Request from ${clientIp}`);
-  console.log(`   User-Agent: ${userAgent.substring(0, 100)}`);
-  console.log(`   Origin: ${origin}`);
-  console.log(`   Timestamp: ${new Date().toISOString()}`);
-  
-  const isMobile = userAgent.includes('Mobile') || 
-                   userAgent.includes('iPhone') || 
-                   userAgent.includes('Android') || 
-                   userAgent.includes('iPad');
-  
-  res.status(200).json({
+// User tracking stats endpoint
+app.get('/api/stats/users', (req: express.Request, res: express.Response) => {
+  // User tracking is now handled by Socket.IO
+  res.json({
     success: true,
-    message: 'Mobile connectivity test successful',
-    mobile: isMobile,
-    userAgent: userAgent.substring(0, 100),
-    origin: origin,
-    timestamp: new Date().toISOString(),
-    backend: 'active'
-  });
-});
-
-
-
-
-// Catch-all for any other endpoints that might be coming without /api prefix
-app.use('/*', (req, res, next) => {
-  // Skip if it's already an API route or health check
-  if (req.path.startsWith('/api/') || req.path === '/health' || req.path === '/') {
-    return next();
-  }
-  
-  // Skip /v0/ routes completely - let them be handled by the specific route handlers
-  if (req.path.startsWith('/v0/')) {
-    console.log(`✅ /v0/ route detected: ${req.path} - allowing to pass through`);
-    return next();
-  }
-  
-  // Skip mobile endpoints - allow them to pass through
-  if (req.path.startsWith('/mobile/')) {
-    console.log(`✅ Mobile route detected: ${req.path} - allowing to pass through`);
-    return next();
-  }
-  
-  // Check if this looks like it should be an API route
-  if (req.path.startsWith('/data/') || req.path.startsWith('/signup') || 
-      req.path.startsWith('/sections') || req.path.startsWith('/security') || req.path.startsWith('/prelaunch')) {
-    console.log(`🔄 Redirecting API-like request: ${req.path} to /api${req.path}`);
-    return res.redirect(308, `/api${req.path}`);
-  }
-  
-  next();
-});
-
-// Return 403 Forbidden for non-API requests (except root and mobile endpoints)
-// TEMPORARILY DISABLED TO FIX MOBILE API ISSUES
-/*
-app.get('*', (req, res) => {
-  // Skip if it's an API route that should be handled by 404 handler
-  if (req.path.startsWith('/api/')) {
-    return; // Let the 404 handler take care of it
-  }
-  
-  // Skip mobile endpoints
-  if (req.path === '/mobile') {
-    return; // Let the mobile endpoint handler take care of it
-  }
-  
-  // Skip health endpoints
-  if (req.path === '/health' || req.path === '/health/detailed') {
-    return; // Let the health endpoint handlers take care of it
-  }
-  
-  // Skip root endpoint
-  if (req.path === '/') {
-    return; // Let the root endpoint handler take care of it
-  }
-  
-  // Skip v0 endpoints
-  if (req.path.startsWith('/v0/')) {
-    return; // Let the v0 endpoint handlers take care of it
-  }
-  
-  // Only block requests that don't match any known patterns
-  res.status(403).json({
-    success: false,
-    message: 'Access Forbidden',
-    error: 'This endpoint is not available',
+    message: 'User tracking is now handled via Socket.IO',
     timestamp: new Date().toISOString()
   });
 });
-*/
 
-// 404 handler for API routes
-app.use('/api/*', (req, res) => {
-  console.log(`❌ API endpoint not found: ${req.path} - Method: ${req.method} - IP: ${req.ip}`);
+// Clear visitors endpoint (POST and GET)
+app.post('/api/clear/visitors', (req: express.Request, res: express.Response) => {
+  try {
+    // Clear the visitor data
+    const dataPath = path.join(__dirname, '../../data/user-sessions.json');
+    const freshData = {
+      users: {},
+      totalVisits: 0,
+      uniqueUsers: 0
+    };
+    
+    // Ensure data directory exists
+    const dataDir = path.dirname(dataPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
+    // Write fresh data
+    fs.writeFileSync(dataPath, JSON.stringify(freshData, null, 2));
+    
+    console.log('✅ Visitor log cleared via API');
+    console.log('📊 All visitor data reset to zero');
+    console.log('🆕 Next visitor will be treated as NEW USER');
+    
+    res.json({
+      success: true,
+      message: 'Visitor log cleared successfully',
+      timestamp: new Date().toISOString(),
+      data: freshData
+    });
+  } catch (error) {
+    console.error('❌ Error clearing visitor log:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear visitor log',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+app.get('/api/clear/visitors', (req: express.Request, res: express.Response) => {
+  try {
+    // Clear the visitor data
+    const dataPath = path.join(__dirname, '../../data/user-sessions.json');
+    const freshData = {
+      users: {},
+      totalVisits: 0,
+      uniqueUsers: 0
+    };
+    
+    // Ensure data directory exists
+    const dataDir = path.dirname(dataPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
+    // Write fresh data
+    fs.writeFileSync(dataPath, JSON.stringify(freshData, null, 2));
+    
+    console.log('✅ Visitor log cleared via API');
+    console.log('📊 All visitor data reset to zero');
+    console.log('🆕 Next visitor will be treated as NEW USER');
+    
+    res.json({
+      success: true,
+      message: 'Visitor log cleared successfully',
+      timestamp: new Date().toISOString(),
+      data: freshData
+    });
+  } catch (error) {
+    console.error('❌ Error clearing visitor log:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear visitor log',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// MongoDB connection test endpoint
+app.get('/api/test/mongodb', (req: express.Request, res: express.Response) => {
+  const connectionStatus = getConnectionStatus();
+  const mongooseState = mongoose.connection.readyState;
+  const stateNames = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  
+  res.json({
+    success: true,
+    connectionStatus,
+    mongooseState,
+    stateName: stateNames[mongooseState] || 'unknown',
+    isConnected: connectionStatus,
+    readyState: mongooseState
+  });
+});
+
+// Handle malformed URLs that include full server URL
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Check if URL contains full server URL and clean it
+  if (req.url.includes('http://localhost:3000') || req.url.includes('https://localhost:3000')) {
+    const cleanUrl = req.url.replace(/https?:\/\/localhost:3000/, '');
+    // Fix double slashes
+    const finalUrl = cleanUrl.replace(/\/\//g, '/');
+    console.log(`🔧 Cleaning malformed URL: ${req.url} -> ${finalUrl}`);
+    req.url = finalUrl;
+  }
+  next();
+});
+
+// === ERROR HANDLERS ===
+app.use('*', (req: express.Request, res: express.Response) => {
+  // Only log 404s for actual API requests, not static files or common paths
+  const shouldLog = !req.path.includes('.') && !req.path.includes('favicon') && req.path !== '/';
+  
+  if (shouldLog) {
+    console.log(`❌ 404: ${req.method} ${req.path} from ${req.ip}`);
+  }
+  
   res.status(404).json({
     success: false,
     message: 'API endpoint not found',
@@ -1138,46 +655,28 @@ app.use('/api/*', (req, res) => {
     method: req.method,
     timestamp: new Date().toISOString(),
     availableEndpoints: [
-      '/api/health',
-      '/api/mobile-test',
-      '/api/heartbeat',
-      '/api/ping',
-      '/api/data/:name',
-      '/api/v0/blog',
-      '/api/v0/about',
-      '/api/v0/nav',
-      '/api/v0/contact',
-      '/api/v0/referral',
-      '/api/v0/reviews',
-      '/api/v0/locations',
-      '/api/v0/supplies',
-      '/api/v0/services',
-      '/api/v0/testimonials',
-      '/api/v1/services',
-      '/api/v1/services/:serviceId',
-      '/api/v1/services/:serviceId/quote',
-      '/api/v1/services/analytics',
-      '/api/signup',
-      '/api/sections',
-      '/api/security',
-      '/api/prelaunch'
+      'health',
+      '/v0/blog',
+      '/v0/about', 
+      '/v0/nav',
+      '/v0/contact',
+      '/v0/referral',
+      '/v0/reviews',
+      '/v0/locations',
+      '/v0/supplies',
+      '/v0/services',
+      '/v0/testimonials',
+      'signup',
+      '/v0/sections',
+      'security',
+      'prelaunch'
     ]
   });
 });
 
-// Error handling middleware with proper status codes
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('❌ Server Error:', err.stack);
-  console.error('❌ Error details:', {
-    name: err.name,
-    message: err.message,
-    path: req.path,
-    method: req.method,
-    ip: req.ip,
-    userAgent: req.get('User-Agent')
-  });
+  consoleLogger.error('server', 'Server Error', err.stack);
   
-  // Determine appropriate status code based on error type
   let statusCode = 500;
   let errorMessage = 'Something went wrong!';
   
@@ -1207,11 +706,10 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
     errorMessage = 'Invalid request format';
   }
   
-  // Don't send error details in production
-  const errorDetails = process.env.NODE_ENV === 'development' ? {
+  const errorDetails = {
     message: err.message,
     stack: err.stack
-  } : undefined;
+  };
   
   res.status(statusCode).json({
     success: false,
@@ -1221,74 +719,45 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   });
 });
 
-// Start server - explicitly bind to IPv4 for mobile compatibility
-server = app.listen(port, '0.0.0.0', () => {
-  console.log('🚀 === PackMoveGO REST API Server ===');
-  console.log(`📡 API Server: http://localhost:${port}`);
-  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log('📋 === Available API Endpoints ===');
-  console.log(`✅ Health Check: http://localhost:${port}/api/health`);
-  console.log(`📊 Data API: http://localhost:${port}/api/data/:name`);
-  console.log(`📝 Content APIs: /api/v0/blog, /api/v0/about, /api/v0/nav, /api/v0/contact, /api/v0/referral`);
-  console.log(`📝 Content APIs: /api/v0/reviews, /api/v0/locations, /api/v0/supplies, /api/v0/services, /api/v0/testimonials`);
-  console.log(`🚀 Enhanced Services: /api/v1/services, /api/v1/services/:serviceId/quote, /api/v1/services/analytics`);
-  console.log(`👤 User Routes: http://localhost:${port}/api/signup`);
-  console.log(`📑 Section Routes: http://localhost:${port}/api/sections`);
-  console.log(`🔒 Security Routes: http://localhost:${port}/api/security`);
-  console.log(`🚀 Prelaunch Routes: http://localhost:${port}/api/prelaunch`);
-  console.log('🌍 === CORS Configuration ===');
-  console.log(`✅ Origins: ${allowedCorsOrigins.join(', ')}`);
-  console.log(`✅ Methods: ${corsOptions.methods.join(', ')}`);
-  console.log(`✅ Headers: ${corsOptions.allowedHeaders.join(', ')}`);
-  console.log('⚙️ === Service Status ===');
+// === START SERVER ===
+const serviceType = process.env.SERVICE_TYPE || 'web';
+const isPrivateService = serviceType === 'private';
 
-  // Check MongoDB connection
-  const dbStatus = getConnectionStatus();
-  const mongoStatus = dbStatus ? '✅ Connected' : '❌ Not connected';
-  console.log(`📦 MongoDB: ${mongoStatus}`);
-
-  // Check Prisma connection
-  let prismaStatus = '❌ Not configured';
-  if (process.env.DATABASE_URL) {
-    try {
-      const { PrismaClient } = require('@prisma/client');
-      const prisma = new PrismaClient();
-      prisma.$connect();
-      prisma.$disconnect();
-      prismaStatus = '✅ Connected';
-    } catch (error) {
-      prismaStatus = '❌ Connection failed';
-    }
-  }
-  console.log(`🔗 Prisma: ⚠️ Not used (MongoDB active)`);
-
-  // Check JWT configuration
-  const jwtStatus = process.env.JWT_SECRET ? '✅ Configured' : '❌ Not configured';
-  console.log(`🔒 JWT: ${jwtStatus}`);
-
-  // Check Stripe configuration
-  const stripeStatus = process.env.STRIPE_SECRET_KEY ? '✅ Configured' : '❌ Not configured';
-  console.log(`💳 Stripe: ${stripeStatus}`);
-
-  // Check Email configuration
-  const emailStatus = process.env.EMAIL_USER ? '✅ Configured' : '❌ Not configured';
-  console.log(`📧 Email: ${emailStatus}`);
-
-
-
-  console.log('🎯 === REST API Ready ===');
-  console.log('📡 All endpoints served directly from this server');
-  console.log('🔗 Ready to accept requests from any frontend');
-  console.log('==================================================');
+httpServer = server.listen(port, '0.0.0.0', () => {
+  consoleLogger.serverStart(port, process.env.NODE_ENV || 'development');
   
-  // PERIODIC KEEP-ALIVE LOGGING FOR RENDER
-  setInterval(() => {
-    console.log(`💚 BACKEND ALIVE: Server running for ${Math.floor(process.uptime())}s - ${new Date().toISOString()}`);
-  }, 60000); // Log every minute
+  if (isPrivateService) {
+    consoleLogger.info('system', '🔒 Running as PRIVATE service - not accessible from public internet');
+    consoleLogger.info('system', '📡 Only accessible by other services in private network');
+  }
+  
+  const endpoints = [
+    `Health Check: http://${localNetwork}:${port}/health`,
+    `Data API: http://${localNetwork}:${port}/data/:name`,
+    'Content APIs: /v0/blog, /v0/about, /v0/nav, /v0/contact, /v0/referral',
+    'Content APIs: /v0/reviews, /v0/locations, /v0/supplies, /v0/services, /v0/testimonials',
+    'Enhanced Services: /v1/services, /v1/services/:serviceId/quote, /v1/services/analytics',
+    `User Routes: http://${localNetwork}:${port}/signup`,
+    `Section Routes: http://${localNetwork}:${port}/sections`,
+    `Security Routes: http://${localNetwork}:${port}/security`,
+    `Prelaunch Routes: http://${localNetwork}:${port}/prelaunch`
+  ];
+  
+  consoleLogger.endpointList(endpoints);
+  
+  const services = {
+    'MongoDB': getConnectionStatus() ? '✅ Connected' : '❌ Not connected',
+    'JWT': process.env.JWT_SECRET ? '✅ Configured' : '❌ Not configured',
+    'Stripe': process.env.STRIPE_SECRET_KEY ? '✅ Configured' : '❌ Not configured',
+    'Email': process.env.EMAIL_USER ? '✅ Configured' : '❌ Not configured'
+  };
+  
+  consoleLogger.serviceStatus(services);
+  consoleLogger.serverReady();
 });
 
-// Start SSH server only in development
-console.log(`🔧 Environment check: envConfig.NODE_ENV = "${envConfig.NODE_ENV}", process.env.NODE_ENV = "${process.env.NODE_ENV}"`);
+consoleLogger.environmentCheck(envConfig.NODE_ENV, port);
+consoleLogger.warning('SSH Server disabled - key file missing');
 
-// SSH Server disabled to avoid key file issues
-console.log('🔐 SSH Server disabled - key file missing');
+// Export for testing
+export { app, server, io };

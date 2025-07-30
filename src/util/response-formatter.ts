@@ -1,309 +1,296 @@
 import { Response } from 'express';
+import { consoleLogger } from './console-logger';
 
-export interface APIResponse<T = any> {
+export interface ApiResponse<T = any> {
   success: boolean;
   message: string;
   data?: T;
-  error?: any;
   timestamp: string;
-  path?: string;
   requestId?: string;
   pagination?: {
     page: number;
     limit: number;
     total: number;
     totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
   };
   meta?: {
     version: string;
     environment: string;
-    responseTime?: number;
+    processingTime?: number;
   };
 }
 
 export interface ErrorResponse {
   success: false;
   message: string;
-  error: {
-    code: string;
-    details?: any;
-    field?: string;
-  };
+  errorCode?: string;
   timestamp: string;
-  path?: string;
   requestId?: string;
+  path?: string;
+  method?: string;
+  maintenance?: boolean;
+  debug?: {
+    message: string;
+    stack?: string;
+    name: string;
+  };
 }
 
-export class ResponseFormatter {
-  private static readonly API_VERSION = '1.0.0';
-  private static readonly ENVIRONMENT = process.env.NODE_ENV || 'development';
-
-  /**
-   * Send a successful response
-   */
-  static success<T>(
+// Success response formatter
+export const sendSuccess = <T>(
     res: Response,
     data: T,
     message: string = 'Success',
     statusCode: number = 200,
     options?: {
+    requestId?: string;
       pagination?: {
         page: number;
         limit: number;
         total: number;
       };
-      responseTime?: number;
-      requestId?: string;
+    processingTime?: number;
     }
-  ): void {
-    const response: APIResponse<T> = {
+) => {
+  const response: ApiResponse<T> = {
       success: true,
       message,
       data,
       timestamp: new Date().toISOString(),
-      path: res.req.path,
       requestId: options?.requestId,
       meta: {
-        version: this.API_VERSION,
-        environment: this.ENVIRONMENT,
-        responseTime: options?.responseTime
+      version: '1.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      processingTime: options?.processingTime
       }
     };
 
     if (options?.pagination) {
-      const { page, limit, total } = options.pagination;
       response.pagination = {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1
-      };
-    }
-
-    res.status(statusCode).json(response);
+      page: options.pagination.page,
+      limit: options.pagination.limit,
+      total: options.pagination.total,
+      totalPages: Math.ceil(options.pagination.total / options.pagination.limit)
+    };
   }
 
-  /**
-   * Send an error response
-   */
-  static error(
+  // Log successful response
+  consoleLogger.info('api', `Success: ${message}`, {
+    statusCode,
+    path: res.req.path,
+    method: res.req.method,
+    requestId: options?.requestId
+  });
+
+    res.status(statusCode).json(response);
+};
+
+// Error response formatter
+export const sendError = (
     res: Response,
     message: string,
     statusCode: number = 500,
-    errorCode: string = 'INTERNAL_ERROR',
-    details?: any,
+  errorCode?: string,
     options?: {
-      field?: string;
       requestId?: string;
+    path?: string;
+    method?: string;
+    debug?: {
+      message: string;
+      stack?: string;
+      name: string;
+    };
     }
-  ): void {
-    const errorResponse: ErrorResponse = {
+) => {
+  const response: ErrorResponse = {
       success: false,
       message,
-      error: {
-        code: errorCode,
-        details,
-        field: options?.field
-      },
+    errorCode,
       timestamp: new Date().toISOString(),
-      path: res.req.path,
-      requestId: options?.requestId
-    };
+    requestId: options?.requestId,
+    path: options?.path,
+    method: options?.method
+  };
 
-    res.status(statusCode).json(errorResponse);
+  // Add debug information in development
+  if (process.env.NODE_ENV === 'development' && options?.debug) {
+    response.debug = options.debug;
   }
 
-  /**
-   * Send a validation error response
-   */
-  static validationError(
-    res: Response,
-    errors: Array<{ field: string; message: string; value?: any }>,
-    requestId?: string
-  ): void {
-    this.error(
-      res,
-      'Validation failed',
-      400,
-      'VALIDATION_ERROR',
-      errors,
-      { requestId }
-    );
-  }
+  // Log error response
+  consoleLogger.error('api', `Error: ${message}`, {
+    statusCode,
+    errorCode,
+    path: options?.path,
+    method: options?.method,
+    requestId: options?.requestId
+  });
 
-  /**
-   * Send a not found response
-   */
-  static notFound(
-    res: Response,
-    resource: string = 'Resource',
-    requestId?: string
-  ): void {
-    this.error(
-      res,
-      `${resource} not found`,
-      404,
-      'NOT_FOUND',
-      undefined,
-      { requestId }
-    );
-  }
+  res.status(statusCode).json(response);
+};
 
-  /**
-   * Send an unauthorized response
-   */
-  static unauthorized(
-    res: Response,
-    message: string = 'Unauthorized access',
-    requestId?: string
-  ): void {
-    this.error(
-      res,
-      message,
-      401,
-      'UNAUTHORIZED',
-      undefined,
-      { requestId }
-    );
-  }
-
-  /**
-   * Send a forbidden response
-   */
-  static forbidden(
-    res: Response,
-    message: string = 'Access forbidden',
-    requestId?: string
-  ): void {
-    this.error(
-      res,
-      message,
-      403,
-      'FORBIDDEN',
-      undefined,
-      { requestId }
-    );
-  }
-
-  /**
-   * Send a rate limit exceeded response
-   */
-  static rateLimitExceeded(
-    res: Response,
-    retryAfter?: number,
-    requestId?: string
-  ): void {
-    const headers: Record<string, string> = {};
-    if (retryAfter) {
-      headers['Retry-After'] = retryAfter.toString();
-    }
-
-    this.error(
-      res,
-      'Rate limit exceeded',
-      429,
-      'RATE_LIMIT_EXCEEDED',
-      { retryAfter },
-      { requestId }
-    );
-  }
-
-  /**
-   * Send a service unavailable response
-   */
-  static serviceUnavailable(
-    res: Response,
-    service: string = 'Service',
-    requestId?: string
-  ): void {
-    this.error(
-      res,
-      `${service} is temporarily unavailable`,
-      503,
-      'SERVICE_UNAVAILABLE',
-      undefined,
-      { requestId }
-    );
-  }
-
-  /**
-   * Send a paginated response
-   */
-  static paginated<T>(
+// Pagination helper
+export const createPaginationResponse = <T>(
     res: Response,
     data: T[],
     page: number,
     limit: number,
     total: number,
     message: string = 'Data retrieved successfully',
-    requestId?: string
-  ): void {
-    this.success(
-      res,
-      data,
+  options?: {
+    requestId?: string;
+    processingTime?: number;
+  }
+) => {
+  return sendSuccess(res, data, message, 200, {
+    requestId: options?.requestId,
+    pagination: { page, limit, total },
+    processingTime: options?.processingTime
+  });
+};
+
+// Health check response
+export const sendHealthCheck = (res: Response, options?: { requestId?: string }) => {
+  const dbStatus = require('../config/database').getConnectionStatus();
+  
+  const healthData = {
+    status: 'ok',
+    environment: process.env.NODE_ENV || 'development',
+    uptime: Math.floor(process.uptime()),
+    database: {
+      connected: dbStatus,
+      status: dbStatus ? 'connected' : 'disconnected'
+    },
+    services: {
+      'MongoDB': dbStatus ? '✅ Connected' : '❌ Not connected',
+      'JWT': process.env.JWT_SECRET ? '✅ Configured' : '❌ Not configured',
+      'Stripe': process.env.STRIPE_SECRET_KEY ? '✅ Configured' : '❌ Not configured',
+      'Email': process.env.EMAIL_USER ? '✅ Configured' : '❌ Not configured'
+    }
+  };
+
+  return sendSuccess(res, healthData, 'Health check passed', 200, {
+    requestId: options?.requestId
+  });
+};
+
+// Validation error response
+export const sendValidationError = (
+  res: Response,
+  errors: any[],
+  message: string = 'Validation failed',
+  options?: { requestId?: string }
+) => {
+  const response: ErrorResponse = {
+    success: false,
+    message,
+    errorCode: 'VALIDATION_ERROR',
+    timestamp: new Date().toISOString(),
+    requestId: options?.requestId,
+    debug: {
       message,
-      200,
-      {
-        pagination: { page, limit, total },
-        requestId
-      }
-    );
-  }
+      name: 'ValidationError',
+      stack: JSON.stringify(errors, null, 2)
+    }
+  };
 
-  /**
-   * Send a created response
-   */
-  static created<T>(
+  consoleLogger.warn('api', `Validation Error: ${message}`, {
+    errors,
+    requestId: options?.requestId
+  });
+
+  res.status(400).json(response);
+};
+
+// Authentication error response
+export const sendAuthError = (
+  res: Response,
+  message: string = 'Authentication required',
+  options?: { requestId?: string }
+) => {
+  return sendError(res, message, 401, 'AUTHENTICATION_ERROR', options);
+};
+
+// Authorization error response
+export const sendAuthzError = (
+  res: Response,
+  message: string = 'Access forbidden',
+  options?: { requestId?: string }
+) => {
+  return sendError(res, message, 403, 'AUTHORIZATION_ERROR', options);
+};
+
+// Not found error response
+export const sendNotFoundError = (
+  res: Response,
+  resource: string = 'Resource',
+  options?: { requestId?: string }
+) => {
+  return sendError(res, `${resource} not found`, 404, 'NOT_FOUND', options);
+};
+
+// Rate limit error response
+export const sendRateLimitError = (
     res: Response,
-    data: T,
-    message: string = 'Resource created successfully',
-    requestId?: string
-  ): void {
-    this.success(res, data, message, 201, { requestId });
-  }
+  retryAfter: number = 60,
+  options?: { requestId?: string }
+) => {
+  res.setHeader('Retry-After', retryAfter.toString());
+  return sendError(res, 'Too many requests', 429, 'RATE_LIMIT_EXCEEDED', options);
+};
 
-  /**
-   * Send a no content response
-   */
-  static noContent(res: Response): void {
-    res.status(204).end();
-  }
+// Database error response
+export const sendDatabaseError = (
+  res: Response,
+  message: string = 'Database service unavailable',
+  options?: { requestId?: string }
+) => {
+  return sendError(res, message, 503, 'DATABASE_ERROR', options);
+};
 
-  /**
-   * Send a health check response
-   */
-  static healthCheck(
+// Maintenance mode response
+export const sendMaintenanceResponse = (
     res: Response,
-    status: 'ok' | 'degraded' | 'down',
-    details?: any
-  ): void {
-    const response = {
-      status,
+  message: string = 'Site is under maintenance. Please check back soon.',
+  options?: { requestId?: string }
+) => {
+  const response: ErrorResponse = {
+    success: false,
+    message,
+    errorCode: 'MAINTENANCE_MODE',
       timestamp: new Date().toISOString(),
-      uptime: Math.floor(process.uptime()),
-      environment: this.ENVIRONMENT,
-      version: this.API_VERSION,
-      ...details
-    };
+    requestId: options?.requestId,
+    maintenance: true
+  };
 
-    res.status(status === 'down' ? 503 : 200).json(response);
-  }
-}
+  consoleLogger.info('api', 'Maintenance mode response', {
+    message,
+    requestId: options?.requestId
+  });
 
-// Convenience functions for common responses
-export const sendSuccess = ResponseFormatter.success;
-export const sendError = ResponseFormatter.error;
-export const sendValidationError = ResponseFormatter.validationError;
-export const sendNotFound = ResponseFormatter.notFound;
-export const sendUnauthorized = ResponseFormatter.unauthorized;
-export const sendForbidden = ResponseFormatter.forbidden;
-export const sendRateLimitExceeded = ResponseFormatter.rateLimitExceeded;
-export const sendServiceUnavailable = ResponseFormatter.serviceUnavailable;
-export const sendPaginated = ResponseFormatter.paginated;
-export const sendCreated = ResponseFormatter.created;
-export const sendNoContent = ResponseFormatter.noContent;
-export const sendHealthCheck = ResponseFormatter.healthCheck; 
+  res.status(503).json(response);
+};
+
+// Timeout error response
+export const sendTimeoutError = (
+  res: Response,
+  options?: { requestId?: string }
+) => {
+  return sendError(res, 'Request timeout', 408, 'TIMEOUT', options);
+};
+
+// Export default formatter
+export default {
+  sendSuccess,
+  sendError,
+  createPaginationResponse,
+  sendHealthCheck,
+  sendValidationError,
+  sendAuthError,
+  sendAuthzError,
+  sendNotFoundError,
+  sendRateLimitError,
+  sendDatabaseError,
+  sendMaintenanceResponse,
+  sendTimeoutError
+}; 

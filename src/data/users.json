@@ -1,0 +1,87 @@
+{
+  "users": [
+    {
+      "id": "1",
+      "email": "admin@packmovego.com",
+      "password": "$2a$12$csjRLhUguctKQ88y8q5yquk.4cXc8cpzd8hVb2EOMPoBYWLva3Pce",
+      "role": "admin",
+      "firstName": "Admin",
+      "lastName": "User",
+      "phone": "+1-555-123-4567",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "lastLogin": "2025-07-29T11:50:22.054Z",
+      "isActive": true,
+      "permissions": [
+        "read",
+        "write",
+        "admin",
+        "delete"
+      ]
+    },
+    {
+      "id": "2",
+      "email": "demo@packmovego.com",
+      "password": "$2a$12$mvJbqut71ImpRqH7Zvw5ZONGNP2tm66E8XPIDhSkK6EiV5TI8DsMW",
+      "role": "user",
+      "firstName": "Demo",
+      "lastName": "User",
+      "phone": "+1-555-987-6543",
+      "createdAt": "2024-01-15T00:00:00.000Z",
+      "lastLogin": "2025-07-29T11:50:17.872Z",
+      "isActive": true,
+      "permissions": [
+        "read",
+        "write"
+      ]
+    },
+    {
+      "id": "3",
+      "email": "test@packmovego.com",
+      "password": "$2a$12$Ih415ul9FOPQkW0tIuTfx.86uhJkpzWPHB.vycrurG/K/LSZn.e9y",
+      "role": "user",
+      "firstName": "Test",
+      "lastName": "Account",
+      "phone": "+1-555-456-7890",
+      "createdAt": "2024-02-01T00:00:00.000Z",
+      "lastLogin": "2025-07-29T12:42:28.510Z",
+      "isActive": true,
+      "permissions": [
+        "read"
+      ]
+    }
+  ],
+  "roles": {
+    "admin": {
+      "name": "Administrator",
+      "permissions": [
+        "read",
+        "write",
+        "admin",
+        "delete"
+      ],
+      "description": "Full system access"
+    },
+    "user": {
+      "name": "Standard User",
+      "permissions": [
+        "read",
+        "write"
+      ],
+      "description": "Basic user access"
+    },
+    "guest": {
+      "name": "Guest",
+      "permissions": [
+        "read"
+      ],
+      "description": "Read-only access"
+    }
+  },
+  "settings": {
+    "passwordMinLength": 8,
+    "requireSpecialChars": true,
+    "maxLoginAttempts": 5,
+    "lockoutDuration": 900,
+    "sessionTimeout": 3600
+  }
+}

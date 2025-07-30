@@ -1,224 +1,207 @@
 import { Request, Response, NextFunction } from 'express';
-import { sendError } from '../util/response-formatter';
+import { consoleLogger } from '../util/console-logger';
 
-export interface AppError extends Error {
-  statusCode?: number;
-  code?: string;
-  isOperational?: boolean;
-  details?: any;
-}
-
-export class CustomError extends Error implements AppError {
+// Custom error classes for better error handling
+export class AppError extends Error {
   public statusCode: number;
-  public code: string;
   public isOperational: boolean;
-  public details?: any;
 
-  constructor(
-    message: string,
-    statusCode: number = 500,
-    code: string = 'INTERNAL_ERROR',
-    details?: any
-  ) {
+  constructor(message: string, statusCode: number, isOperational = true) {
     super(message);
     this.statusCode = statusCode;
-    this.code = code;
-    this.isOperational = true;
-    this.details = details;
+    this.isOperational = isOperational;
 
     Error.captureStackTrace(this, this.constructor);
   }
 }
 
-// Specific error classes
-export class ValidationError extends CustomError {
-  constructor(message: string, details?: any) {
-    super(message, 400, 'VALIDATION_ERROR', details);
+export class ValidationError extends AppError {
+  constructor(message: string) {
+    super(message, 400);
   }
 }
 
-export class AuthenticationError extends CustomError {
-  constructor(message: string = 'Authentication failed') {
-    super(message, 401, 'AUTHENTICATION_ERROR');
+export class AuthenticationError extends AppError {
+  constructor(message: string = 'Authentication required') {
+    super(message, 401);
   }
 }
 
-export class AuthorizationError extends CustomError {
+export class AuthorizationError extends AppError {
   constructor(message: string = 'Access forbidden') {
-    super(message, 403, 'AUTHORIZATION_ERROR');
+    super(message, 403);
   }
 }
 
-export class NotFoundError extends CustomError {
+export class NotFoundError extends AppError {
   constructor(resource: string = 'Resource') {
-    super(`${resource} not found`, 404, 'NOT_FOUND');
+    super(`${resource} not found`, 404);
   }
 }
 
-export class ConflictError extends CustomError {
+export class ConflictError extends AppError {
   constructor(message: string = 'Resource conflict') {
-    super(message, 409, 'CONFLICT_ERROR');
+    super(message, 409);
   }
 }
 
-export class RateLimitError extends CustomError {
-  constructor(message: string = 'Rate limit exceeded') {
-    super(message, 429, 'RATE_LIMIT_ERROR');
+export class RateLimitError extends AppError {
+  constructor(message: string = 'Too many requests') {
+    super(message, 429);
   }
 }
 
-export class ServiceUnavailableError extends CustomError {
-  constructor(service: string = 'Service') {
-    super(`${service} is temporarily unavailable`, 503, 'SERVICE_UNAVAILABLE');
+export class DatabaseError extends AppError {
+  constructor(message: string = 'Database service unavailable') {
+    super(message, 503);
   }
 }
 
-// Error handler middleware
+// Request ID middleware for tracking requests
+export const requestIdMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const requestId = req.headers['x-request-id'] as string || 
+                   `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  (req as any).requestId = requestId;
+  res.setHeader('X-Request-ID', requestId);
+  
+  next();
+};
+
+// Main error handler middleware
 export const errorHandler = (
-  err: AppError,
+  err: Error | AppError,
   req: Request,
   res: Response,
   next: NextFunction
-): void => {
-  const requestId = req.headers['x-request-id'] as string;
-  const timestamp = new Date().toISOString();
-  const path = req.path;
-  const method = req.method;
-  const userAgent = req.get('User-Agent');
-  const ip = req.ip || req.socket.remoteAddress;
+) => {
+  const requestId = (req as any).requestId || 'unknown';
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  const userAgent = req.get('User-Agent') || 'unknown';
 
-  // Log error details
-  console.error('❌ API Error:', {
-    message: err.message,
-    stack: err.stack,
-    statusCode: err.statusCode || 500,
-    code: err.code || 'INTERNAL_ERROR',
-    path,
-    method,
-    ip,
+  // Log the error
+  consoleLogger.error('error-handler', 'Server Error', {
+    requestId,
+    clientIp,
     userAgent,
-    timestamp,
-    requestId
+    path: req.path,
+    method: req.method,
+    error: err.message,
+    stack: err.stack,
+    timestamp: new Date().toISOString()
   });
 
-  // Handle specific error types
-  if (err instanceof CustomError) {
-    sendError(res, err.message, err.statusCode, err.code, err.details, {
-      requestId
-    });
-    return;
+  // Determine status code and message
+  let statusCode = 500;
+  let message = 'Something went wrong!';
+  let errorCode: string | undefined;
+
+  if (err instanceof AppError) {
+    statusCode = err.statusCode;
+    message = err.message;
+  } else if (err.name === 'ValidationError') {
+    statusCode = 400;
+    message = 'Validation failed';
+    errorCode = 'VALIDATION_ERROR';
+  } else if (err.name === 'UnauthorizedError' || err.name === 'JsonWebTokenError') {
+    statusCode = 401;
+    message = 'Unauthorized access';
+    errorCode = 'AUTHENTICATION_ERROR';
+  } else if (err.name === 'ForbiddenError') {
+    statusCode = 403;
+    message = 'Access forbidden';
+    errorCode = 'AUTHORIZATION_ERROR';
+  } else if (err.name === 'NotFoundError') {
+    statusCode = 404;
+    message = 'Resource not found';
+    errorCode = 'NOT_FOUND';
+  } else if (err.name === 'ConflictError') {
+    statusCode = 409;
+    message = 'Resource conflict';
+    errorCode = 'CONFLICT_ERROR';
+  } else if (err.name === 'RateLimitError') {
+    statusCode = 429;
+    message = 'Too many requests';
+    errorCode = 'RATE_LIMIT_EXCEEDED';
+  } else if (err.name === 'MongoError' || err.name === 'MongooseError') {
+    statusCode = 503;
+    message = 'Database service unavailable';
+    errorCode = 'DATABASE_ERROR';
+  } else if (err.name === 'SyntaxError') {
+    statusCode = 400;
+    message = 'Invalid request format';
+    errorCode = 'INVALID_REQUEST';
+  } else if (err.name === 'TypeError') {
+    statusCode = 400;
+    message = 'Invalid data type';
+    errorCode = 'TYPE_ERROR';
   }
 
-  // Handle validation errors
-  if (err.name === 'ValidationError') {
-    sendError(res, 'Validation failed', 400, 'VALIDATION_ERROR', err.message, {
-      requestId
-    });
-    return;
+  // Prepare error response
+  const errorResponse: any = {
+    success: false,
+    message,
+    timestamp: new Date().toISOString(),
+    requestId,
+    path: req.path,
+    method: req.method
+  };
+
+  // Add error code if available
+  if (errorCode) {
+    errorResponse.errorCode = errorCode;
   }
 
-  // Handle JWT errors
-  if (err.name === 'JsonWebTokenError') {
-    sendError(res, 'Invalid token', 401, 'INVALID_TOKEN', undefined, {
-      requestId
-    });
-    return;
-  }
-
-  if (err.name === 'TokenExpiredError') {
-    sendError(res, 'Token expired', 401, 'TOKEN_EXPIRED', undefined, {
-      requestId
-    });
-    return;
-  }
-
-  // Handle MongoDB errors
-  if (err.name === 'MongoError' || err.name === 'MongooseError') {
-    if (err.message.includes('duplicate key')) {
-      sendError(res, 'Resource already exists', 409, 'DUPLICATE_RESOURCE', undefined, {
-        requestId
-      });
-      return;
-    }
-    
-    sendError(res, 'Database error', 503, 'DATABASE_ERROR', undefined, {
-      requestId
-    });
-    return;
-  }
-
-  // Handle syntax errors
-  if (err instanceof SyntaxError) {
-    sendError(res, 'Invalid request format', 400, 'INVALID_FORMAT', undefined, {
-      requestId
-    });
-    return;
-  }
-
-  // Handle timeout errors
-  if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
-    sendError(res, 'Request timeout', 408, 'TIMEOUT', undefined, {
-      requestId
-    });
-    return;
-  }
-
-  // Handle network errors
-  if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED') {
-    sendError(res, 'Service unavailable', 503, 'SERVICE_UNAVAILABLE', undefined, {
-      requestId
-    });
-    return;
-  }
-
-  // Default error response
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal server error';
-  const code = err.code || 'INTERNAL_ERROR';
-
-  // Don't expose internal errors in production
-  const details = process.env.NODE_ENV === 'development' ? {
+  // Add detailed error information in development
+  if (process.env.NODE_ENV === 'development') {
+    errorResponse.debug = {
+      message: err.message,
     stack: err.stack,
     name: err.name
-  } : undefined;
+    };
+  }
 
-  sendError(res, message, statusCode, code, details, {
-    requestId
-  });
+  // Add rate limit information if applicable
+  if (statusCode === 429) {
+    errorResponse.retryAfter = 60; // 1 minute
+    res.setHeader('Retry-After', '60');
+  }
+
+  // Set appropriate headers
+  res.setHeader('Content-Type', 'application/json');
+  
+  // Send error response
+  res.status(statusCode).json(errorResponse);
 };
 
-// Async error wrapper
+// Async error wrapper for route handlers
 export const asyncHandler = (fn: Function) => {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 };
 
-// Request ID middleware
-export const requestIdMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  const requestId = req.headers['x-request-id'] || 
-                   req.headers['x-correlation-id'] || 
-                   `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
-  req.headers['x-request-id'] = requestId as string;
-  res.setHeader('X-Request-ID', requestId);
-  
-  next();
-};
-
-// 404 handler
+// 404 handler for unmatched routes
 export const notFoundHandler = (req: Request, res: Response) => {
-  const requestId = req.headers['x-request-id'] as string;
+  const requestId = (req as any).requestId || 'unknown';
   
-  sendError(res, 'Endpoint not found', 404, 'NOT_FOUND', {
+  consoleLogger.warn('error-handler', 'Route not found', {
+    requestId,
     path: req.path,
     method: req.method,
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+
+  res.status(404).json({
+    success: false,
+    message: 'API endpoint not found',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    requestId,
     availableEndpoints: [
-      '/api/health',
-      '/api/v1/services',
-      '/api/v1/services/:serviceId',
-      '/api/v1/services/:serviceId/quote',
-      '/api/v1/services/analytics',
+      'health',
       '/v0/blog',
       '/v0/about',
       '/v0/nav',
@@ -228,9 +211,53 @@ export const notFoundHandler = (req: Request, res: Response) => {
       '/v0/locations',
       '/v0/supplies',
       '/v0/services',
-      '/v0/testimonials'
+      '/v0/testimonials',
+      'signup',
+      '/v0/sections',
+      'security',
+      'prelaunch'
     ]
-  }, { requestId });
+  });
+};
+
+// Maintenance mode middleware
+export const maintenanceModeMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const maintenanceMode = process.env.MAINTENANCE_MODE === 'true';
+  const maintenanceMessage = process.env.MAINTENANCE_MESSAGE || 'Site is under maintenance. Please check back soon.';
+  
+  if (maintenanceMode && !req.path.startsWith('/health')) {
+    return res.status(503).json({
+      success: false,
+      message: maintenanceMessage,
+      timestamp: new Date().toISOString(),
+      maintenance: true
+    });
+  }
+  
+  next();
+};
+
+// Request timeout middleware
+export const timeoutMiddleware = (timeoutMs: number = 30000) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const timeout = setTimeout(() => {
+      if (!res.headersSent) {
+        consoleLogger.warn('timeout', `Request timeout for ${req.method} ${req.path}`);
+        res.status(408).json({
+          success: false,
+          message: 'Request timeout',
+          timestamp: new Date().toISOString(),
+          requestId: (req as any).requestId
+        });
+      }
+    }, timeoutMs);
+
+    res.on('finish', () => {
+      clearTimeout(timeout);
+    });
+
+    next();
+  };
 };
 
  

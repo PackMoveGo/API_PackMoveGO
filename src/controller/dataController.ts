@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 
-const dataDir = path.join(__dirname, '../data');
+const dataDir = path.join(__dirname, '../../../src/data');
 
 export const getDataFile = (req: Request, res: Response) => {
   // Extract name from params or from URL path

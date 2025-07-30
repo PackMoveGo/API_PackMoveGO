@@ -1,22 +1,36 @@
 {
   "compilerOptions": {
-    "target": "es2018",
-    "module": "commonjs",
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
+    "target": "es2020",
+    "lib": ["es2020"],
+    "allowJs": true,
+    "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "skipLibCheck": true,
+    "strict": true,
     "forceConsistentCasingInFileNames": true,
+    "module": "commonjs",
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "baseUrl": "./src",
-    "paths": {
-      "*": ["node_modules/*"],
-      "@util/*": ["util/*"]
-    }
+    "isolatedModules": true,
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "./",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "types": ["node"]
   },
-  "include": ["src/server.ts", "src/route/**/*", "src/controller/**/*", "src/service/**/*", "src/model/**/*", "src/util/**/*", "src/config/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*",
+    "config/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "src/ssh/**/*",
+    "src/test/**/*"
+  ]
 } 

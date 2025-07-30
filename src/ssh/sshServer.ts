@@ -1,9 +1,20 @@
 import { Server } from 'ssh2';
 import { spawn } from 'child_process';
 import { createServer } from 'net';
-import { AUTH_CONFIG } from '../middleware/authMiddleware';
 import fs from 'fs';
 import path from 'path';
+
+// Simple SSH configuration
+const SSH_CONFIG = {
+  IS_PRODUCTION: process.env.NODE_ENV === 'production',
+  SSH_PORT: parseInt(process.env.SSH_PORT || '2222', 10),
+  SSH_PASSWORD: process.env.SSH_PASSWORD || 'defaultpassword',
+  SESSION_TIMEOUT: 10 * 60 * 1000, // 10 minutes
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'defaultadmin',
+  RENDER_ENV: process.env.RENDER || false,
+  PORT: parseInt(process.env.PORT || '3000', 10),
+  HOST: process.env.HOST || 'localhost'
+};
 
 interface SSHUser {
   username: string;

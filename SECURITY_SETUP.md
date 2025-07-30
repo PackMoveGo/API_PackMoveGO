@@ -193,7 +193,7 @@ curl https://api.packmovego.com/mobile/test
 ## 📞 Support
 
 If you encounter issues:
-1. Check the logs for error messages
+e1. Check the logs for error messages
 2. Verify environment variable configuration
 3. Test with different devices and networks
 4. Review the security configuration logs at startup 

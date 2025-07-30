@@ -2,9 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
-import { authMiddleware } from './authMiddleware';
+import { optionalAuth } from './authMiddleware';
 
-// Rate limiting configuration - stricter for production
+// Enhanced rate limiting configuration
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: process.env.NODE_ENV === 'production' ? 50 : 100, // Stricter in production
@@ -14,10 +14,9 @@ const apiLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // Skip rate limiting for trusted IPs
+  // Skip rate limiting for trusted IPs and health checks
   skip: (req) => {
     const clientIp = req.ip || req.socket.remoteAddress || '';
-    // Skip rate limiting for health checks and trusted IPs
     return req.path === '/api/health' || 
            req.path === '/api/health/simple' || 
            req.path === '/health' ||
@@ -28,17 +27,59 @@ const apiLimiter = rateLimit({
   }
 });
 
-// Security headers configuration
+// API Key validation middleware
+const validateAPIKey = (req: Request, res: Response, next: NextFunction) => {
+  // Skip API key validation if disabled
+  if (process.env.API_KEY_ENABLED !== 'true') {
+    return next();
+  }
+
+  const apiKey = req.headers['x-api-key'] as string;
+  const frontendKey = process.env.API_KEY_FRONTEND;
+  const adminKey = process.env.API_KEY_ADMIN;
+
+  // Check if API key is provided
+  if (!apiKey) {
+    console.warn(`🚫 API key missing from IP: ${req.ip}`);
+    return res.status(401).json({
+      success: false,
+      message: 'API key required',
+      error: 'Missing x-api-key header'
+    });
+  }
+
+  // Validate API key
+  if (apiKey === frontendKey) {
+    (req as any).apiKeyType = 'frontend';
+    console.log(`✅ Valid frontend API key from IP: ${req.ip}`);
+    return next();
+  }
+
+  if (apiKey === adminKey) {
+    (req as any).apiKeyType = 'admin';
+    console.log(`✅ Valid admin API key from IP: ${req.ip}`);
+    return next();
+  }
+
+  console.warn(`🚫 Invalid API key from IP: ${req.ip}`);
+  return res.status(401).json({
+    success: false,
+    message: 'Invalid API key',
+    error: 'Unauthorized access'
+  });
+};
+
+// Enhanced security headers configuration
 const securityHeaders = process.env.NODE_ENV === 'development' 
   ? helmet({
-      contentSecurityPolicy: false, // Disable CSP in development
+      contentSecurityPolicy: false,
       crossOriginEmbedderPolicy: false,
       crossOriginOpenerPolicy: false,
       crossOriginResourcePolicy: false,
       dnsPrefetchControl: { allow: false },
       frameguard: { action: "deny" },
       hidePoweredBy: true,
-      hsts: false, // Disable HSTS in development
+      hsts: false,
       ieNoOpen: true,
       noSniff: true,
       originAgentCluster: false,
@@ -87,43 +128,32 @@ const securityHeaders = process.env.NODE_ENV === 'development'
       xssFilter: true
     });
 
-// Request validation middleware
+// Simple request validation middleware - Only check for obvious attacks
 const validateRequest = (req: Request, res: Response, next: NextFunction) => {
-  // Check for common attack patterns
-  const attackPatterns = [
+  // Only check for obvious attack patterns in query parameters and body
+  const obviousAttackPatterns = [
     /<script>.*<\/script>/i,
     /javascript:/i,
-    /on\w+\s*=/i,
     /eval\s*\(/i,
-    /document\./i,
-    /window\./i,
-    /alert\s*\(/i,
     /union\s+select/i,
-    /exec\s*\(/i,
-    /system\s*\(/i,
     /\.\.\//i,  // Path traversal
     /\.\.\\/i,  // Path traversal
     /\.env/i,   // Environment file access
     /\.git/i,   // Git directory access
-    /\.config/i, // Config file access
-    /\.ini/i,   // INI file access
-    /\.log/i    // Log file access
+    /php:\/\/|file:\/\/|data:\/\//i, // File inclusion
   ];
 
-  const requestBody = JSON.stringify(req.body);
-  const requestQuery = JSON.stringify(req.query);
-  const requestParams = JSON.stringify(req.params);
-  const requestPath = req.path;
-  const requestHeaders = JSON.stringify(req.headers);
+  // Only check query parameters and body, not the path
+  const queryString = JSON.stringify(req.query);
+  const bodyString = JSON.stringify(req.body);
 
-  const combinedRequest = `${requestBody}${requestQuery}${requestParams}${requestPath}${requestHeaders}`;
-
-  for (const pattern of attackPatterns) {
-    if (pattern.test(combinedRequest)) {
-      console.warn(`🚫 Attack detected from IP: ${req.ip}, Path: ${requestPath}`);
+  for (const pattern of obviousAttackPatterns) {
+    if (pattern.test(queryString) || pattern.test(bodyString)) {
+      console.warn(`🚫 Attack detected from IP: ${req.ip}, Path: ${req.path}`);
       return res.status(403).json({
         success: false,
-        message: 'Invalid request detected'
+        message: 'Invalid request detected',
+        error: 'Security violation'
       });
     }
   }
@@ -139,7 +169,8 @@ const requestSizeLimiter = (req: Request, res: Response, next: NextFunction) => 
     console.warn(`🚫 Large request detected from IP: ${req.ip}`);
     return res.status(413).json({
       success: false,
-      message: 'Request entity too large'
+      message: 'Request entity too large',
+      error: 'Request exceeds size limit'
     });
   }
 
@@ -167,7 +198,7 @@ const additionalSecurityHeaders = (req: Request, res: Response, next: NextFuncti
   next();
 };
 
-// Security monitoring middleware
+// Enhanced security monitoring middleware
 const securityMonitoring = (req: Request, res: Response, next: NextFunction) => {
   const clientIp = req.ip || req.socket.remoteAddress || '';
   const userAgent = req.get('User-Agent') || 'Unknown';
@@ -183,18 +214,24 @@ const securityMonitoring = (req: Request, res: Response, next: NextFunction) => 
     console.warn(`⚠️ Sensitive endpoint accessed: ${requestPath} by ${clientIp}`);
   }
   
+  // Log API key usage
+  if ((req as any).apiKeyType) {
+    console.log(`🔑 API key used: ${(req as any).apiKeyType} for ${requestPath}`);
+  }
+  
   next();
 };
 
-// Combine all security middleware (without global auth middleware)
+// Combine all security middleware
 export const securityMiddleware = [
   securityHeaders,
   securityMonitoring,
   apiLimiter,
+  validateAPIKey,
   validateRequest,
   requestSizeLimiter,
   additionalSecurityHeaders
 ];
 
-// Export auth middleware for specific routes
-export { authMiddleware }; 
+// Export individual middleware for specific use cases
+export { validateAPIKey, validateRequest, requestSizeLimiter, additionalSecurityHeaders }; 

@@ -1,0 +1,104 @@
+⚠️ SSH module not available
+✅ Environment validation passed
+🔧 Environment: production
+🌐 Port: 3000
+🔐 Allowed IPs: 
+🌍 CORS Origins: https://www.packmovego.com, https://packmovego.com, http://localhost:3000, http://localhost:5173, https://*.vercel.app, https://*.netlify.app, *
+[INFO] ✅ Environment validation passed
+🔌 Initializing Socket.IO server...
+🔌 Setting up Socket.IO event handlers...
+🔐 Setting up Socket.IO authentication middleware...
+👥 Setting up Socket.IO connection handler...
+✅ Socket.IO event handlers configured
+✅ Socket.IO server initialized successfully
+⚠️ MongoDB connection disabled - API will work without database
+🔧 Environment check: envConfig.NODE_ENV = "production", process.env.NODE_ENV = "production"
+🔐 SSH Server disabled - key file missing
+(node:19931) [MONGOOSE] Warning: Duplicate schema index on {"email":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+🚀 === PackMoveGO REST API Server ===
+📡 API Server: http://localhost:3000
+🔧 Environment: production
+📋 === Available API Endpoints ===
+✅ Health Check: http://localhost:3000/health
+📊 Data API: http://localhost:3000/data/:name
+📝 Content APIs: /v0/blog, /v0/about, /v0/nav, /v0/contact, /v0/referral
+📝 Content APIs: /v0/reviews, /v0/locations, /v0/supplies, /v0/services, /v0/testimonials
+🚀 Enhanced Services: /v1/services, /v1/services/:serviceId/quote, /v1/services/analytics
+👤 User Routes: http://localhost:3000/signup
+📑 Section Routes: http://localhost:3000/sections
+🔒 Security Routes: http://localhost:3000/security
+🚀 Prelaunch Routes: http://localhost:3000/prelaunch
+🌍 === CORS Configuration ===
+✅ Origins: https://www.packmovego.com, https://packmovego.com, https://api.packmovego.com, http://localhost:5173, http://localhost:5000, http://localhost:5001, https://packmovego-6x8w2t0kw-pack-move-go-frontend.vercel.server, https://*.vercel.server, http://localhost:3000, https://*.vercel.app, https://*.netlify.app, *
+⚙️ === Service Status ===
+📦 MongoDB: ❌ Not connected
+🔒 JWT: ✅ Configured
+💳 Stripe: ✅ Configured
+📧 Email: ✅ Configured
+🎯 === REST API Ready ===
+==================================================
+[2025-07-27T20:51:22.509Z] GET /data/nav - Origin: None
+[2025-07-27T20:51:25.427Z] GET /v0/nav - Origin: None
+❌ GET /v0/nav - Status: 404 - Time: 2ms
+[2025-07-27T20:51:28.318Z] GET /v1/services - Origin: None
+❌ GET /v1/services - Status: 500 - Time: 5ms
+[2025-07-27T20:51:33.734Z] GET /auth/verify - Origin: None
+❌ GET /verify - Status: 401 - Time: 5ms
+[2025-07-27T20:51:39.910Z] GET / - Origin: None
+📊 Server Metrics: {
+  uptime: '300s',
+  memory: '23MB / 26MB',
+  database: 'disconnected',
+  requests: '5 (3 errors)',
+  avgResponseTime: '4ms'
+}
+📊 Server Metrics: {
+  uptime: '600s',
+  memory: '23MB / 26MB',
+  database: 'disconnected',
+  requests: '5 (3 errors)',
+  avgResponseTime: '4ms'
+}
+📊 Server Metrics: {
+  uptime: '1589s',
+  memory: '24MB / 26MB',
+  database: 'disconnected',
+  requests: '5 (3 errors)',
+  avgResponseTime: '4ms'
+}
+📊 Server Metrics: {
+  uptime: '1889s',
+  memory: '24MB / 26MB',
+  database: 'disconnected',
+  requests: '5 (3 errors)',
+  avgResponseTime: '4ms'
+}
+📊 Server Metrics: {
+  uptime: '2189s',
+  memory: '24MB / 26MB',
+  database: 'disconnected',
+  requests: '5 (3 errors)',
+  avgResponseTime: '4ms'
+}
+📊 Server Metrics: {
+  uptime: '2489s',
+  memory: '24MB / 26MB',
+  database: 'disconnected',
+  requests: '5 (3 errors)',
+  avgResponseTime: '4ms'
+}
+📊 Server Metrics: {
+  uptime: '3587s',
+  memory: '24MB / 26MB',
+  database: 'disconnected',
+  requests: '5 (3 errors)',
+  avgResponseTime: '4ms'
+}
+📊 Server Metrics: {
+  uptime: '6044s',
+  memory: '24MB / 26MB',
+  database: 'disconnected',
+  requests: '5 (3 errors)',
+  avgResponseTime: '4ms'
+}
