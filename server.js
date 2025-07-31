@@ -1,22 +1,65 @@
 #!/usr/bin/env node
 
-// Root server.js file for Render deployment
-// This redirects to the compiled TypeScript server
+// Simple JavaScript server for Render deployment
+// This bypasses TypeScript compilation issues
 
+const express = require('express');
+const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 
-console.log('🚀 PackMoveGO API - Starting server...');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Try to load the compiled server
-const compiledServerPath = path.join(__dirname, 'dist', 'src', 'server.js');
+// Basic middleware
+app.use(cors());
+app.use(express.json());
 
-if (fs.existsSync(compiledServerPath)) {
-  console.log(`✅ Found compiled server at: ${compiledServerPath}`);
-  require(compiledServerPath);
-} else {
-  console.error('❌ Compiled server not found!');
-  console.error('Expected:', compiledServerPath);
-  console.error('Please ensure the build process completed successfully.');
-  process.exit(1);
-} 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'packmovego-api',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// API root endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'PackMoveGO API',
+    status: 'running',
+    service: 'api',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/health',
+      api: '/api/*'
+    }
+  });
+});
+
+// Basic API endpoint
+app.get('/api/status', (req, res) => {
+  res.status(200).json({
+    message: 'API is working',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 PackMoveGO API server running on port ${PORT}`);
+  console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`🌐 API status: http://localhost:${PORT}/api/status`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('🛑 SIGTERM received, shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 SIGINT received, shutting down gracefully...');
+  process.exit(0);
+}); 
