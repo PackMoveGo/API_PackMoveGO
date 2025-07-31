@@ -1,38 +1,22 @@
 #!/usr/bin/env node
 
-// Render entry point - JavaScript file that can be run directly
-// This should be used as the start command in Render dashboard
+// Render deployment entry point
+// This file is specifically for Render to use as the start command
 
 const path = require('path');
 const fs = require('fs');
 
-console.log('🚀 PackMoveGO API - Render entry point starting...');
+console.log('🚀 PackMoveGO API - Render deployment starting...');
 
-// Check current directory
-const currentDir = __dirname;
-console.log(`📁 Current directory: ${currentDir}`);
+// Try to load the compiled server
+const compiledServerPath = path.join(__dirname, 'dist', 'src', 'server.js');
 
-// Try multiple possible paths for the compiled server
-const possiblePaths = [
-  path.join(currentDir, 'dist', 'src', 'server.js'),
-  path.join(currentDir, 'dist', 'server.js'),
-  path.join(currentDir, 'src', 'server.js')
-];
-
-console.log('🔍 Looking for compiled server...');
-
-let serverPath = null;
-
-for (const serverPath of possiblePaths) {
-  console.log(`  Checking: ${serverPath}`);
-  if (fs.existsSync(serverPath)) {
-    console.log(`✅ Found server at: ${serverPath}`);
-    require(serverPath);
-    return;
-  }
-}
-
-console.error('❌ No compiled server found!');
-console.error('Tried paths:', possiblePaths);
-console.error('Please ensure the build process completed successfully.');
-process.exit(1); 
+if (fs.existsSync(compiledServerPath)) {
+  console.log(`✅ Found compiled server at: ${compiledServerPath}`);
+  require(compiledServerPath);
+} else {
+  console.error('❌ Compiled server not found!');
+  console.error('Expected:', compiledServerPath);
+  console.error('Please ensure the build process completed successfully.');
+  process.exit(1);
+} 

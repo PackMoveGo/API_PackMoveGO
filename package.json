@@ -14,7 +14,7 @@
     "dev:backend": "nodemon src/server.ts",
     "dev:gateway": "nodemon src/gateway.ts",
     "dev:backend:node": "node src/server.ts",
-    "build": "npm run build:backend && npm run copy-data",
+    "build": "npm run build:backend && npm run build:gateway && npm run copy-data",
     "build:backend": "tsc",
     "build:gateway": "tsc src/gateway.ts --outDir dist",
     "copy-data": "cp -r src/data dist/data",
