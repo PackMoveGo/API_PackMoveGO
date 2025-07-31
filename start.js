@@ -13,7 +13,7 @@ console.log('🚀 PackMoveGO API - Starting deployment...');
 function compileTypeScript() {
   try {
     console.log('🔨 Compiling TypeScript...');
-    execSync('npx tsc', { stdio: 'inherit' });
+    execSync('npm run build:backend', { stdio: 'inherit' });
     console.log('✅ TypeScript compilation successful');
     return true;
   } catch (error) {
