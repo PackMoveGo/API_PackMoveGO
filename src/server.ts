@@ -466,11 +466,83 @@ app.use('/api/v0', (req: express.Request, res: express.Response, next: express.N
   next();
 });
 
+// Add direct route for /v0/nav to handle frontend requests
+app.get('/v0/nav', (req: express.Request, res: express.Response) => {
+  console.log(`📡 Direct nav request: ${req.method} ${req.path} from ${req.ip}`);
+  
+  // Set CORS headers for this specific endpoint
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  
+  // Handle the nav request
+  try {
+    const navData = require('./data/nav.json');
+    return res.json(navData);
+  } catch (error) {
+    console.error('❌ Error loading nav data:', error);
+    return res.status(500).json({ 
+      error: 'Failed to load navigation data',
+      message: 'Could not load navigation data'
+    });
+  }
+});
+
+// Handle OPTIONS for /v0/nav
+app.options('/v0/nav', (req: express.Request, res: express.Response) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  res.status(200).end();
+});
+
 // Specific handler for common frontend requests
 app.get('/api/v0/nav.json', (req: express.Request, res: express.Response) => {
   console.log(`📡 Frontend nav request: ${req.method} ${req.path} from ${req.ip}`);
   // Redirect to the correct endpoint
   return res.redirect('/v0/nav');
+});
+
+// Handle auth status requests
+app.get('/api/auth/status', (req: express.Request, res: express.Response) => {
+  console.log(`📡 Auth status request: ${req.method} ${req.path} from ${req.ip}`);
+  
+  // Set CORS headers for this specific endpoint
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  
+  // Return auth status
+  return res.json({
+    success: true,
+    authenticated: false,
+    message: 'Auth status endpoint',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Handle OPTIONS for /api/auth/status
+app.options('/api/auth/status', (req: express.Request, res: express.Response) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  res.status(200).end();
 });
 
 // Specific handler for health endpoint
