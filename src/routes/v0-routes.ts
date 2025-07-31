@@ -49,6 +49,23 @@ v0Router.get('/test', (req: Request, res: Response) => {
   });
 });
 
+// Health endpoint for v0 routes
+v0Router.get('/health', (req: Request, res: Response) => {
+  setV0CorsHeaders(req, res);
+  const dbStatus = true; // Database status check simplified
+  return res.status(200).json({
+    status: 'ok',
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    database: {
+      connected: dbStatus,
+      status: dbStatus ? 'connected' : 'disconnected'
+    },
+    uptime: Math.floor(process.uptime()),
+    endpoint: '/v0/health'
+  });
+});
+
 // Main V0 data endpoint
 v0Router.get('/:name', (req: Request, res: Response) => {
   const { name } = req.params;

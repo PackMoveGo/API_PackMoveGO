@@ -10,20 +10,17 @@ const nodeFs = require('fs');
 if (require.main === module) {
   console.log('🚀 PackMoveGO API - TypeScript entry point...');
   
-  // Try to load the compiled server
-  const compiledPath = nodePath.join(__dirname, 'server.js');
+  // Check if we're already running the compiled version
+  const isCompiled = __filename.endsWith('.js') && __dirname.includes('dist');
   
-  if (nodeFs.existsSync(compiledPath)) {
-    console.log('✅ Found compiled server, redirecting...');
-    require(compiledPath);
+  if (isCompiled) {
+    console.log('✅ Running compiled server directly...');
+    // Continue with the server setup below
   } else {
-    console.error('❌ Compiled server not found!');
-    console.error('Expected:', compiledPath);
-    console.error('Please ensure the build process completed successfully.');
-    process.exit(1);
+    // When running through ts-node (development), run directly
+    console.log('✅ Running TypeScript server directly...');
+    // Continue with the server setup below
   }
-  // Exit after redirecting
-  process.exit(0);
 }
 
 import express from 'express';
@@ -78,7 +75,11 @@ import UserTracker from './util/user-tracker';
 let validateEnvironment: any;
 
 try {
-  const envValidation = require('./config/envValidation');
+  // Check if we're running the compiled version or TypeScript version
+  const isCompiled = __filename.endsWith('.js') && __dirname.includes('dist');
+  const envValidationPath = isCompiled ? '../config/envValidation' : '../../config/envValidation';
+  
+  const envValidation = require(envValidationPath);
   validateEnvironment = envValidation.validateEnvironment;
 } catch (error) {
   consoleLogger.warning('Environment validation not available');
@@ -89,7 +90,9 @@ try {
 }
 
 // Load environment variables
-dotenv.config({ path: path.join(__dirname, '../config/.env') });
+const isCompiled = __filename.endsWith('.js') && __dirname.includes('dist');
+const envPath = isCompiled ? '../config/.env' : '../../config/.env';
+dotenv.config({ path: path.join(__dirname, envPath) });
 
 // Validate environment configuration
 let envConfig;
@@ -468,6 +471,13 @@ app.get('/api/v0/nav.json', (req: express.Request, res: express.Response) => {
   console.log(`📡 Frontend nav request: ${req.method} ${req.path} from ${req.ip}`);
   // Redirect to the correct endpoint
   return res.redirect('/v0/nav');
+});
+
+// Specific handler for health endpoint
+app.get('/api/v0/health', (req: express.Request, res: express.Response) => {
+  console.log(`📡 Frontend health request: ${req.method} ${req.path} from ${req.ip}`);
+  // Redirect to the correct endpoint
+  return res.redirect('/v0/health');
 });
 
 // V0 content routes

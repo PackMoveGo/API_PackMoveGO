@@ -1,60 +1,112 @@
-# PackMoveGO API Backend
+# PackMoveGO API
 
-A comprehensive backend API for PackMoveGO moving services, built with Node.js, TypeScript, and Express.
+Backend API service for PackMoveGO, a professional moving services platform.
 
-## 🚀 Latest Deployment Update
+## 🚀 Features
 
-**Commit**: `8bd38c0` - Fixed TypeScript compilation errors for Render deployment
+- RESTful API endpoints for moving services
+- Secure authentication and authorization
+- Rate limiting and IP whitelisting
+- CORS configuration for frontend integration
+- MongoDB database integration
+- Email notifications
+- Stripe payment integration
 
-## Features
+## 🛠️ Tech Stack
 
-- **Real-time Communication**: Socket.IO integration for live updates
-- **User Tracking**: Comprehensive user session and interaction tracking
-- **Authentication**: JWT-based authentication with OAuth support
-- **Load Balancing**: Advanced load balancing and scaling capabilities
-- **Security**: Rate limiting, CORS, and security middleware
-- **Database**: MongoDB with Mongoose ODM
-- **Payment Processing**: Stripe integration
-- **Email Services**: Nodemailer integration
-- **SSH Access**: Secure SSH server for remote management
+- Node.js
+- Express.js
+- TypeScript
+- MongoDB
+- JWT Authentication
+- Stripe API
+- Nodemailer
 
-## Quick Start
+## 📋 Prerequisites
 
-```bash
-# Install dependencies
-npm install
+- Node.js (v22.14.0 or higher)
+- MongoDB database
+- Stripe account
+- SMTP server for emails
 
-# Build the project
-npm run build
+## 🔧 Environment Variables
 
-# Start development server
-npm run dev
+Create a `.env` file in the root directory with the following variables:
 
-# Start production server
-npm start
+```env
+NODE_ENV=development
+PORT=3000
+MONGODB_URI=your_mongodb_uri
+JWT_SECRET=your_jwt_secret
+STRIPE_SECRET_KEY=your_stripe_secret_key
+EMAIL_USER=your_email
+EMAIL_PASS=your_email_password
+CORS_ORIGIN=https://www.packmovego.com,https://packmovego.com
 ```
 
-## Environment Variables
+## 🚀 Getting Started
 
-Copy `.env.example` to `.env` and configure your environment variables:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/SereneAura2/PackMoveGO-API.git
+   cd PackMoveGO-API
+   ```
 
-```bash
-cp config/.env.example config/.env
-```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## API Endpoints
+3. Build the project:
+   ```bash
+   npm run build
+   ```
 
-- `/api/health` - Health check
-- `/api/auth/*` - Authentication endpoints
-- `/api/v0/*` - Content API endpoints
-- `/api/services/*` - Service management
-- `/api/bookings/*` - Booking management
-- `/api/payments/*` - Payment processing
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-## Deployment
+## 📦 Deployment
 
-The API is configured for deployment on Render with automatic builds and deployments.
+The API is automatically deployed to Render when changes are pushed to the main branch. The deployment process is managed by GitHub Actions.
 
-## License
+## 🔒 Security
 
-MIT License
+- IP whitelisting for authorized domains
+- Rate limiting to prevent abuse
+- CORS configuration for secure cross-origin requests
+- Helmet.js for security headers
+- Input validation and sanitization
+
+## 📝 API Documentation
+
+### Authentication Endpoints
+
+- `POST /api/auth/signup` - Register a new user
+- `POST /api/auth/login` - Login user
+- `POST /api/auth/logout` - Logout user
+
+### Navigation Endpoints
+
+- `GET /api/navigation` - Get navigation menu items
+
+### Section Verification
+
+- `POST /api/verify-sections` - Verify page sections
+
+## 🤝 Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🔐 Security Policy
+
+Please read [SECURITY.md](SECURITY.md) for details on our security policy and how to report security vulnerabilities.
+
+## 📞 Support
+
+For support, email support@packmovego.com or visit [www.packmovego.com](https://www.packmovego.com)
