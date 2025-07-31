@@ -106,6 +106,10 @@ try {
 
 // === SERVER SETUP ===
 const app = express();
+
+// Configure trust proxy for rate limiting behind load balancers
+app.set('trust proxy', 1);
+
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
@@ -551,7 +555,47 @@ app.get('/v0/nav', (req: express.Request, res: express.Response) => {
   
   // Handle the nav request
   try {
-    const navData = require('./data/nav.json');
+    // Use fs.readFileSync instead of require for better compatibility
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Try multiple possible paths for the nav.json file
+    const possiblePaths = [
+      path.join(__dirname, 'data', 'nav.json'),
+      path.join(__dirname, '..', 'data', 'nav.json'),
+      path.join(__dirname, 'src', 'data', 'nav.json'),
+      path.join(__dirname, '..', 'src', 'data', 'nav.json')
+    ];
+    
+    let navData;
+    let fileFound = false;
+    
+    for (const filePath of possiblePaths) {
+      if (fs.existsSync(filePath)) {
+        try {
+          const fileContent = fs.readFileSync(filePath, 'utf8');
+          navData = JSON.parse(fileContent);
+          fileFound = true;
+          console.log(`✅ Nav data loaded from: ${filePath}`);
+          break;
+        } catch (error) {
+          console.error(`❌ Error reading ${filePath}:`, error);
+        }
+      }
+    }
+    
+    if (!fileFound) {
+      console.error('❌ Nav.json not found in any of the expected locations:', possiblePaths);
+      return res.status(500).json({ 
+        error: 'Failed to load navigation data',
+        message: 'Navigation data file not found',
+        debug: {
+          __dirname,
+          possiblePaths
+        }
+      });
+    }
+    
     return res.json(navData);
   } catch (error) {
     console.error('❌ Error loading nav data:', error);
