@@ -232,6 +232,56 @@ router.get('/verify', (req: Request, res: Response) => {
 });
 
 /**
+ * @route GET /auth/status
+ * @desc Check authentication status
+ * @access Public
+ */
+router.get('/status', (req: Request, res: Response) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '') || 
+                  req.cookies?.jwt_token;
+
+    if (!token) {
+      return res.status(200).json({
+        success: false,
+        authenticated: false,
+        message: 'No token provided'
+      });
+    }
+
+    const decoded = authDataService.verifyToken(token);
+    if (!decoded) {
+      return res.status(200).json({
+        success: false,
+        authenticated: false,
+        message: 'Invalid token'
+      });
+    }
+
+    logger.auth(`Auth status check for user: ${decoded.email}`, undefined, { userId: decoded.id });
+
+    return res.status(200).json({
+      success: true,
+      authenticated: true,
+      message: 'User is authenticated',
+      user: {
+        id: decoded.id,
+        email: decoded.email,
+        role: decoded.role,
+        permissions: decoded.permissions
+      }
+    });
+  } catch (error) {
+    logger.error(LogCategory.AUTH, 'Auth status check error:', error as Error);
+    return res.status(200).json({
+      success: false,
+      authenticated: false,
+      message: 'Authentication check failed'
+    });
+  }
+});
+
+/**
  * @route GET /auth/admin
  * @desc Check if user is admin
  * @access Private
@@ -473,71 +523,6 @@ router.get('/profile', (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
-    });
-  }
-});
-
-/**
- * @route GET /auth/status
- * @desc Check authentication status
- * @access Public
- */
-router.get('/status', (req: Request, res: Response) => {
-  try {
-    // Get token from header, cookie, or query
-    const token = req.headers.authorization?.replace('Bearer ', '') || 
-                  req.cookies?.jwt_token ||
-                  req.query.token as string;
-
-    if (!token) {
-      return res.status(200).json({
-        success: false,
-        authenticated: false,
-        message: 'No token provided'
-      });
-    }
-
-    // Verify token
-    const decoded = authDataService.verifyToken(token);
-    if (!decoded) {
-      return res.status(200).json({
-        success: false,
-        authenticated: false,
-        message: 'Invalid token'
-      });
-    }
-
-    // Get user info
-    const user = authDataService.getUserById(decoded.id);
-    if (!user) {
-      return res.status(200).json({
-        success: false,
-        authenticated: false,
-        message: 'User not found'
-      });
-    }
-
-    // User tracking is now handled by Socket.IO
-
-    return res.status(200).json({
-      success: true,
-      authenticated: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        isAdmin: user.role === 'admin',
-        permissions: user.permissions
-      }
-    });
-  } catch (error) {
-    logger.error(LogCategory.AUTH, 'Auth status check error:', error as Error);
-    return res.status(200).json({
-      success: false,
-      authenticated: false,
-      message: 'Authentication check failed'
     });
   }
 });

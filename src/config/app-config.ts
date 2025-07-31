@@ -76,7 +76,12 @@ class ConfigManager {
         'http://localhost:3000',
         'http://localhost:5173',
         'http://localhost:5000',
-        'http://localhost:5001'
+        'http://localhost:5001',
+        'https://www.packmovego.com',
+        'https://packmovego.com',
+        'https://packmovego-1awwscxen-pack-move-go-frontend.vercel.app',
+        'https://packmovego-mhl9ajyph-pack-move-go-frontend.vercel.app',
+        'https://packmovego-o1z0apkcq-pack-move-go-frontend.vercel.app'
       ]
     };
   }

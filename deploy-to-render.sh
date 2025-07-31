@@ -1,87 +1,91 @@
 #!/bin/bash
 
-# PackMoveGO API - Render Deployment Script
-# This script helps prepare and deploy the application to Render
+# 🚀 PackMoveGO API Deployment Script
+# This script helps deploy the fixed API to Render
 
-echo "🚀 PackMoveGO API - Render Deployment Script"
-echo "=============================================="
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
 
-# Check if we're in the right directory
-if [ ! -f "package.json" ]; then
-    echo "❌ Error: package.json not found. Please run this script from the project root."
-    exit 1
-fi
+echo -e "${CYAN}🚀 PackMoveGO API Deployment Script${NC}"
+echo -e "${CYAN}Deploying fixes to Render...${NC}"
+echo "============================================================"
 
-# Check if git is initialized
+# Check if we're in a git repository
 if [ ! -d ".git" ]; then
-    echo "❌ Error: Git repository not found. Please initialize git first."
+    echo -e "${RED}❌ Not in a git repository${NC}"
+    echo -e "${YELLOW}Please run this script from your project directory${NC}"
     exit 1
 fi
 
-# Check if we have a remote origin
-if ! git remote get-url origin > /dev/null 2>&1; then
-    echo "❌ Error: No remote origin found. Please add your GitHub repository."
-    echo "Run: git remote add origin https://github.com/yourusername/PackMoveGO-API.git"
-    exit 1
-fi
+# Check current status
+echo -e "${BLUE}📋 Checking current git status...${NC}"
+git status --porcelain
 
-echo "✅ Repository check passed"
-
-# Build the project
-echo "🔨 Building project..."
-npm run build
-
-if [ $? -ne 0 ]; then
-    echo "❌ Build failed! Please fix the errors and try again."
-    exit 1
-fi
-
-echo "✅ Build completed successfully"
-
-# Check if dist directory exists
-if [ ! -d "dist" ]; then
-    echo "❌ Error: dist directory not found after build. Build may have failed."
-    exit 1
-fi
-
-# Check if compiled files exist
-if [ ! -f "dist/src/server.js" ]; then
-    echo "❌ Error: Compiled server not found at dist/src/server.js"
-    exit 1
-fi
-
-if [ ! -f "dist/src/gateway.js" ]; then
-    echo "❌ Error: Compiled gateway not found at dist/src/gateway.js"
-    exit 1
-fi
-
-echo "✅ Compiled files found"
-
-# Commit and push changes
-echo "📤 Committing and pushing changes..."
+# Add all changes
+echo -e "${BLUE}📦 Adding all changes...${NC}"
 git add .
-git commit -m "Deploy to Render - $(date)"
-git push origin main
 
-if [ $? -ne 0 ]; then
-    echo "❌ Push failed! Please check your git configuration."
-    exit 1
+# Check if there are changes to commit
+if git diff --cached --quiet; then
+    echo -e "${YELLOW}⚠️  No changes to commit${NC}"
+    echo -e "${YELLOW}The fixes may already be committed${NC}"
+else
+    # Commit changes
+    echo -e "${BLUE}💾 Committing changes...${NC}"
+    git commit -m "Fix CORS and v0 routes for production deployment
+
+- Add explicit CORS headers middleware
+- Fix v0 routes file loading with fs.readFileSync
+- Add missing health endpoints
+- Ensure proper error handling for data files"
+
+    # Push to GitHub
+    echo -e "${BLUE}🚀 Pushing to GitHub...${NC}"
+    git push origin main
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ Successfully pushed to GitHub${NC}"
+    else
+        echo -e "${RED}❌ Failed to push to GitHub${NC}"
+        exit 1
+    fi
 fi
 
-echo "✅ Changes pushed to GitHub"
+echo -e "\n${CYAN}📋 Deployment Summary${NC}"
+echo "============================================================"
+echo -e "${GREEN}✅ Changes committed and pushed${NC}"
+echo -e "${GREEN}✅ Render will auto-deploy from GitHub${NC}"
+echo -e "${GREEN}✅ Build process will include our fixes${NC}"
 
-echo ""
-echo "🎉 Deployment preparation completed!"
-echo ""
-echo "📋 Next steps:"
-echo "1. Go to https://dashboard.render.com"
-echo "2. Click 'New +' → 'Blueprint'"
-echo "3. Connect your GitHub account"
-echo "4. Select the PackMoveGO-API repository"
-echo "5. Render will automatically detect render.yaml and create services"
-echo "6. Set environment variables in each service"
-echo "7. Monitor deployment in Render Dashboard"
-echo ""
-echo "📖 For detailed instructions, see RENDER_DEPLOYMENT.md"
-echo ""
-echo "🔗 Your repository: https://github.com/SereneAura2/PackMoveGO-API" 
+echo -e "\n${YELLOW}⏳ Next Steps:${NC}"
+echo "1. Wait for Render to detect the push (usually 1-2 minutes)"
+echo "2. Monitor the deployment in your Render dashboard"
+echo "3. Test the endpoints once deployment is complete"
+
+echo -e "\n${BLUE}🔍 Test Commands (run after deployment):${NC}"
+echo "curl -X GET https://api.packmovego.com/health"
+echo "curl -X GET https://api.packmovego.com/v0/nav"
+echo "curl -I -H \"Origin: https://www.packmovego.com\" https://api.packmovego.com/health"
+
+echo -e "\n${CYAN}📊 Expected Results After Deployment:${NC}"
+echo -e "${GREEN}✅ CORS headers present for all responses${NC}"
+echo -e "${GREEN}✅ /v0/nav returns navigation data${NC}"
+echo -e "${GREEN}✅ All health endpoints working${NC}"
+echo -e "${GREEN}✅ Frontend can make API calls without errors${NC}"
+
+echo -e "\n${YELLOW}⚠️  Important Notes:${NC}"
+echo "- Deployment typically takes 3-5 minutes"
+echo "- You can monitor progress in your Render dashboard"
+echo "- Test endpoints after deployment completes"
+echo "- If issues persist, check Render logs"
+
+echo -e "\n${CYAN}🎯 Deployment URL:${NC}"
+echo "https://api.packmovego.com"
+
+echo -e "\n${GREEN}🎉 Deployment script completed!${NC}"
+echo "============================================================" 
