@@ -1,22 +1,25 @@
 #!/usr/bin/env node
 
-// Render deployment entry point
-// This file is specifically for Render to use as the start command
-
+const { spawn } = require('child_process');
 const path = require('path');
-const fs = require('fs');
 
-console.log('🚀 PackMoveGO API - Render deployment starting...');
+// Set the working directory to the project root
+process.chdir(__dirname);
 
-// Try to load the compiled server
-const compiledServerPath = path.join(__dirname, 'dist', 'src', 'server.js');
+// Start the application
+const child = spawn('node', ['dist/src/server.js'], {
+  stdio: 'inherit',
+  env: { ...process.env, NODE_ENV: 'production' }
+});
 
-if (fs.existsSync(compiledServerPath)) {
-  console.log(`✅ Found compiled server at: ${compiledServerPath}`);
-  require(compiledServerPath);
-} else {
-  console.error('❌ Compiled server not found!');
-  console.error('Expected:', compiledServerPath);
-  console.error('Please ensure the build process completed successfully.');
-  process.exit(1);
-} 
+child.on('exit', (code) => {
+  process.exit(code);
+});
+
+process.on('SIGTERM', () => {
+  child.kill('SIGTERM');
+});
+
+process.on('SIGINT', () => {
+  child.kill('SIGINT');
+}); 

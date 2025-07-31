@@ -1,22 +1,25 @@
 #!/usr/bin/env node
 
-// Render gateway deployment entry point
-// This file is specifically for the gateway service
-
+const { spawn } = require('child_process');
 const path = require('path');
-const fs = require('fs');
 
-console.log('🚀 PackMoveGO Gateway - Render deployment starting...');
+// Set the working directory to the project root
+process.chdir(__dirname);
 
-// Try to load the compiled gateway
-const compiledGatewayPath = path.join(__dirname, 'dist', 'src', 'gateway.js');
+// Start the gateway application
+const child = spawn('node', ['dist/src/gateway.js'], {
+  stdio: 'inherit',
+  env: { ...process.env, NODE_ENV: 'production' }
+});
 
-if (fs.existsSync(compiledGatewayPath)) {
-  console.log(`✅ Found compiled gateway at: ${compiledGatewayPath}`);
-  require(compiledGatewayPath);
-} else {
-  console.error('❌ Compiled gateway not found!');
-  console.error('Expected:', compiledGatewayPath);
-  console.error('Please ensure the build process completed successfully.');
-  process.exit(1);
-} 
+child.on('exit', (code) => {
+  process.exit(code);
+});
+
+process.on('SIGTERM', () => {
+  child.kill('SIGTERM');
+});
+
+process.on('SIGINT', () => {
+  child.kill('SIGINT');
+}); 
