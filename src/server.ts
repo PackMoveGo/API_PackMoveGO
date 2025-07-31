@@ -1,3 +1,23 @@
+#!/usr/bin/env node
+
+// Redirect to compiled version if run directly
+if (require.main === module) {
+  const path = require('path');
+  const fs = require('fs');
+  
+  const compiledPath = path.join(__dirname, '..', 'dist', 'src', 'server.js');
+  
+  if (fs.existsSync(compiledPath)) {
+    console.log('🚀 Redirecting to compiled server...');
+    require(compiledPath);
+  } else {
+    console.error('❌ Compiled server not found!');
+    console.error('Please run: npm run build');
+    process.exit(1);
+  }
+  return;
+}
+
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
