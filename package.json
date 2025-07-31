@@ -4,11 +4,11 @@
   "description": "Backend for Pack Go Movers",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node render-entry.js",
     "start:render": "node start-render.js",
     "start:gateway": "nodemon src/gateway.ts",
     "start:prod": "node dist/server.js",
-    "start:gateway:prod": "node dist/gateway.js",
+    "start:gateway:prod": "node render-gateway-entry.js",
     "render:start": "node dist/server.js",
     "dev": "npm run dev:backend",
     "dev:backend": "nodemon src/server.ts",
