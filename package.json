@@ -4,7 +4,7 @@
   "description": "Backend for Pack Go Movers",
   "main": "index.js",
   "scripts": {
-    "start": "npm run build:backend && node dist/src/server.js",
+    "start": "node start.js",
     "start:render": "node start-render.js",
     "start:gateway": "nodemon src/gateway.ts",
     "start:prod": "node dist/server.js",

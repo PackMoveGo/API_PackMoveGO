@@ -1,23 +1,47 @@
 #!/usr/bin/env node
 
-// Startup script for Render deployment
-// This ensures we run the compiled JavaScript instead of TypeScript
+// Simple start script for Render deployment
+// This will compile TypeScript and start the server
 
+const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-// Check if dist/server.js exists
-const serverPath = path.join(__dirname, 'dist', 'src', 'server.js');
+console.log('🚀 PackMoveGO API - Starting deployment...');
 
-if (fs.existsSync(serverPath)) {
-  console.log('🚀 Starting PackMoveGO API server...');
-  console.log(`📁 Server file: ${serverPath}`);
+// Function to compile TypeScript
+function compileTypeScript() {
+  try {
+    console.log('🔨 Compiling TypeScript...');
+    execSync('npx tsc', { stdio: 'inherit' });
+    console.log('✅ TypeScript compilation successful');
+    return true;
+  } catch (error) {
+    console.error('❌ TypeScript compilation failed:', error.message);
+    return false;
+  }
+}
+
+// Function to start the server
+function startServer() {
+  const serverPath = path.join(__dirname, 'dist', 'src', 'server.js');
   
-  // Import and run the compiled server
-  require(serverPath);
+  if (fs.existsSync(serverPath)) {
+    console.log('✅ Starting compiled server...');
+    require(serverPath);
+  } else {
+    console.error('❌ Compiled server not found at:', serverPath);
+    process.exit(1);
+  }
+}
+
+// Main execution
+console.log('📁 Current directory:', __dirname);
+
+// Always compile first
+if (compileTypeScript()) {
+  startServer();
 } else {
-  console.error('❌ Error: Compiled server file not found!');
-  console.error(`Expected: ${serverPath}`);
-  console.error('Make sure to run: npm run build');
+  console.error('❌ Failed to compile TypeScript, exiting...');
   process.exit(1);
 } 
