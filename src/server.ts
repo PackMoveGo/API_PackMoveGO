@@ -456,25 +456,35 @@ app.use(loadBalancer.middleware);
 // Request logging middleware
 app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
   const startTime = Date.now();
+  const timestamp = new Date().toISOString();
+  const method = req.method;
+  const path = req.path;
+  const userAgent = req.get('User-Agent') || 'Unknown';
+  const origin = req.get('Origin') || 'Unknown';
+  const ip = req.ip || req.socket.remoteAddress || 'Unknown';
+  const requestId = req.headers['x-request-id'] as string || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
-  // Only log actual API requests, not static files or health checks
-  const shouldLog = !req.path.includes('.') && req.path !== '/' && req.path !== '/health';
+  // Log ALL requests to Render console
+  console.log(`[${timestamp}] ${method} ${path} - IP: ${ip} - Origin: ${origin} - User-Agent: ${userAgent} - RequestID: ${requestId}`);
   
-  if (shouldLog) {
-    consoleLogger.request(req.method, req.path, req.get('Origin'));
-  }
-  
-  // User tracking is now handled by Socket.IO
+  // Set request ID for tracking
+  (req as any).requestId = requestId;
+  res.setHeader('X-Request-ID', requestId);
   
   res.on('finish', () => {
     const responseTime = Date.now() - startTime;
-    const isError = res.statusCode >= 400;
-    serverMonitor.recordRequest(responseTime, isError);
+    const statusCode = res.statusCode;
+    const isError = statusCode >= 400;
     
-    // Only log actual API responses
-    if (shouldLog) {
-      consoleLogger.response(res.statusCode, req.path, responseTime);
+    // Log ALL responses to Render console
+    if (isError) {
+      console.error(`❌ [${timestamp}] ${method} ${path} - Status: ${statusCode} - Time: ${responseTime}ms - RequestID: ${requestId}`);
+    } else {
+      console.log(`✅ [${timestamp}] ${method} ${path} - Status: ${statusCode} - Time: ${responseTime}ms - RequestID: ${requestId}`);
     }
+    
+    // Record for monitoring
+    serverMonitor.recordRequest(responseTime, isError);
   });
   
   next();
@@ -864,6 +874,19 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
   next();
 });
 
+// Test endpoint for logging verification
+app.get('/test-logging', (req: express.Request, res: express.Response) => {
+  console.log('🧪 Test logging endpoint called!');
+  res.json({
+    success: true,
+    message: 'Logging test successful',
+    timestamp: new Date().toISOString(),
+    requestId: (req as any).requestId,
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+});
+
 // === ERROR HANDLERS ===
 app.use('*', (req: express.Request, res: express.Response) => {
   // Only log 404s for actual API requests, not static files or common paths
@@ -951,6 +974,11 @@ const isPrivateService = serviceType === 'private';
 httpServer = server.listen(port, '0.0.0.0', () => {
   consoleLogger.serverStart(port, process.env.NODE_ENV || 'development');
   
+  // Add a test endpoint for logging verification
+  console.log('🧪 Test endpoint available: GET /test-logging');
+  console.log('📊 All requests will now be logged to Render console');
+  console.log('🌐 Server is ready to accept requests');
+  
   if (isPrivateService) {
     consoleLogger.info('system', '🔒 Running as PRIVATE service - not accessible from public internet');
     consoleLogger.info('system', '📡 Only accessible by other services in private network');
@@ -983,6 +1011,14 @@ httpServer = server.listen(port, '0.0.0.0', () => {
 
 consoleLogger.environmentCheck(envConfig.NODE_ENV, port);
 consoleLogger.warning('SSH Server disabled - key file missing');
+
+// Log key environment variables for debugging
+console.log('🔧 Environment Variables:');
+console.log(`   NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`   PORT: ${process.env.PORT}`);
+console.log(`   LOG_LEVEL: ${process.env.LOG_LEVEL || 'info'}`);
+console.log(`   CORS_ORIGINS: ${process.env.CORS_ORIGINS || 'not set'}`);
+console.log('📊 Request logging is now ACTIVE for all endpoints');
 
 // Export for testing
 export { app, server, io };
