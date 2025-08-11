@@ -304,7 +304,7 @@ const userSchema = new Schema<IUser>({
 });
 
 // Indexes for better query performance
-userSchema.index({ email: 1 });
+// Note: email index is automatically created by unique: true in schema
 userSchema.index({ oauthProvider: 1, oauthId: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ 'moverInfo.isAvailable': 1 });

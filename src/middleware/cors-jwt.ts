@@ -150,16 +150,15 @@ export class CORSJWTMiddleware {
     const origin = req.headers.origin;
     const path = req.path;
 
-    // Debug logging for CORS issues
-    if (origin) {
+    // Debug logging for CORS issues (only for blocked requests)
+    if (origin && !this.isOriginAllowed(origin)) {
       console.log(`🌐 CORS Request: ${origin} -> ${path}`);
       console.log(`🔍 Allowed origins:`, this.config.allowedOrigins);
-      console.log(`✅ Origin allowed:`, this.isOriginAllowed(origin));
+      console.log(`❌ Origin blocked:`, origin);
     }
 
     // Allow requests with no origin (like direct API calls, server-to-server)
     if (!origin) {
-      console.log(`🌐 CORS Request: No origin -> ${path} (ALLOWED)`);
       this.setCORSHeaders(req, res, '*');
       return next();
     }

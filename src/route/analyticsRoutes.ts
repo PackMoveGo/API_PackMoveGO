@@ -1,6 +1,8 @@
 import express from 'express';
 import { performanceMonitor } from '../util/performance-monitor';
 import { requireAuth } from '../middleware/authMiddleware';
+import { userTracker } from '../util/user-tracker';
+import { Router, Request, Response } from 'express';
 
 const router = express.Router();
 
@@ -124,6 +126,46 @@ router.get('/analytics/realtime', (req, res) => {
       success: false,
       error: 'Real-time data unavailable',
       timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Get user tracking statistics
+router.get('/users/stats', (req: Request, res: Response) => {
+  try {
+    const stats = userTracker.getStats();
+    
+    res.json({
+      success: true,
+      data: {
+        totalSessions: stats.totalSessions,
+        activeSessions: stats.activeSessions,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error getting user stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving user statistics'
+    });
+  }
+});
+
+// Get detailed user sessions (for debugging)
+router.get('/users/sessions', (req: Request, res: Response) => {
+  try {
+    // This would need to be exposed from userTracker
+    res.json({
+      success: true,
+      message: 'User sessions endpoint - implement detailed view',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error getting user sessions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving user sessions'
     });
   }
 });

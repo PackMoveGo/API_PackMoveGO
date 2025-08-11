@@ -14,10 +14,11 @@ const apiLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // Skip rate limiting for trusted IPs and health checks
+  // Skip rate limiting for trusted IPs, health checks, and v0 endpoints
   skip: (req) => {
     const clientIp = req.ip || req.socket.remoteAddress || '';
-    return req.path === '/api/health' || 
+    return req.path.startsWith('/v0/') || // Skip v0 endpoints (public content)
+           req.path === '/api/health' || 
            req.path === '/api/health/simple' || 
            req.path === '/health' ||
            clientIp.startsWith('76.76.21.') ||

@@ -161,6 +161,11 @@ const FRONTEND_RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 const FRONTEND_RATE_LIMIT_MAX = 200; // 200 requests per minute for frontend
 
 export function frontendRateLimitMiddleware(req: Request, res: Response, next: NextFunction) {
+  // Skip rate limiting for v0 endpoints (public content)
+  if (req.path.startsWith('/v0/')) {
+    return next();
+  }
+  
   const clientIp = getClientIp(req);
   const now = Date.now();
   

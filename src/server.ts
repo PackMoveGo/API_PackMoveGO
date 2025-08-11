@@ -69,7 +69,7 @@ import paymentRoutes from './route/paymentRoutes';
 import serverMonitor from './util/monitor';
 import loadBalancer from './util/load-balancer';
 import { log, consoleLogger } from './util/console-logger';
-import UserTracker from './util/user-tracker';
+import { userTracker } from './util/user-tracker';
 
 // Conditional imports to avoid build errors
 let validateEnvironment: any;
@@ -136,7 +136,7 @@ const localNetwork = process.env.LOCAL_NETWORK || 'localhost';
 // === SOCKET.IO CONFIGURATION ===
 consoleLogger.socketInit();
 const socketUtils = new SocketUtils(io);
-const userTracker = new UserTracker(io);
+// User tracking is now handled by the singleton userTracker instance
 consoleLogger.socketReady();
 
 // Log connection summary every 5 minutes
@@ -403,57 +403,10 @@ app.use(burstProtection);
 
 // CORS middleware - MUST be before other middleware
 app.use(corsJWT.middleware);
-// Add explicit CORS headers for all responses
-app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const origin = req.headers.origin;
-  
-  // Set CORS headers for all responses
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With,Accept,Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Vary', 'Origin');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  next();
-});
-
-// Add explicit CORS headers for all responses
-app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const origin = req.headers.origin;
-  
-  // Set CORS headers for all responses
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With,Accept,Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Vary', 'Origin');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  next();
-});
 
 app.use(loadBalancer.middleware);
 
-// Request logging middleware
+// Request logging middleware with user tracking
 app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
   const startTime = Date.now();
   const timestamp = new Date().toISOString();
@@ -464,8 +417,12 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
   const ip = req.ip || req.socket.remoteAddress || 'Unknown';
   const requestId = req.headers['x-request-id'] as string || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
-  // Log ALL requests to Render console
-  console.log(`[${timestamp}] ${method} ${path} - IP: ${ip} - Origin: ${origin} - User-Agent: ${userAgent} - RequestID: ${requestId}`);
+  // Get or create user session
+  const userSession = userTracker.getUserSession(req);
+  const userDisplay = userTracker.getUserDisplay(userSession);
+  
+  // Log ALL requests to Render console with user tracking
+  console.log(`[${timestamp}] ${method} ${path} - ${userDisplay} - IP: ${ip} - Origin: ${origin} - User-Agent: ${userAgent} - RequestID: ${requestId}`);
   
   // Set request ID for tracking
   (req as any).requestId = requestId;
@@ -478,9 +435,9 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
     
     // Log ALL responses to Render console
     if (isError) {
-      console.error(`❌ [${timestamp}] ${method} ${path} - Status: ${statusCode} - Time: ${responseTime}ms - RequestID: ${requestId}`);
+      console.error(`❌ [${timestamp}] ${method} ${path} - ${userDisplay} - Status: ${statusCode} - Time: ${responseTime}ms - RequestID: ${requestId}`);
     } else {
-      console.log(`✅ [${timestamp}] ${method} ${path} - Status: ${statusCode} - Time: ${responseTime}ms - RequestID: ${requestId}`);
+      console.log(`✅ [${timestamp}] ${method} ${path} - ${userDisplay} - Status: ${statusCode} - Time: ${responseTime}ms - RequestID: ${requestId}`);
     }
     
     // Record for monitoring
@@ -552,7 +509,9 @@ app.use('/api/v0', (req: express.Request, res: express.Response, next: express.N
 
 // Add direct route for /v0/nav to handle frontend requests
 app.get('/v0/nav', (req: express.Request, res: express.Response) => {
-  console.log(`📡 Direct nav request: ${req.method} ${req.path} from ${req.ip}`);
+  const userSession = userTracker.getUserSession(req);
+  const userDisplay = userTracker.getUserDisplay(userSession);
+  console.log(`📡 Direct nav request: ${req.method} ${req.path} from ${userDisplay}`);
   
   // Set CORS headers for this specific endpoint
   const origin = req.headers.origin;
@@ -915,7 +874,6 @@ app.use('*', (req: express.Request, res: express.Response) => {
       '/v0/services',
       '/v0/testimonials',
       'signup',
-      '/v0/sections',
       'security',
       'prelaunch'
     ]

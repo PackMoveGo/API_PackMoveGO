@@ -213,7 +213,6 @@ export const notFoundHandler = (req: Request, res: Response) => {
       '/v0/services',
       '/v0/testimonials',
       'signup',
-      '/v0/sections',
       'security',
       'prelaunch'
     ]
