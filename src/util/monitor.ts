@@ -1,4 +1,5 @@
 import { getConnectionStatus } from '../config/database';
+import { userTracker } from './user-tracker';
 
 export interface ServerMetrics {
   uptime: number;
@@ -67,12 +68,15 @@ class ServerMonitor {
 
   logMetrics() {
     const metrics = this.getMetrics();
+    const userStats = userTracker.getStats();
+    
     console.log('📊 Server Metrics:', {
       uptime: `${metrics.uptime}s`,
       memory: `${metrics.memory.heapUsed}MB / ${metrics.memory.heapTotal}MB`,
       database: metrics.database.status,
       requests: `${metrics.requests.total} (${metrics.requests.errors} errors)`,
-      avgResponseTime: `${metrics.requests.avgResponseTime}ms`
+      avgResponseTime: `${metrics.requests.avgResponseTime}ms`,
+      users: userStats.emojiStats
     });
   }
 }

@@ -9,6 +9,8 @@ interface UserSession {
   lastSeen: Date;
   requestCount: number;
   isReconnected: boolean;
+  visitCount: number;
+  userType: 'new' | 'returning' | 'frequent' | 'bot';
 }
 
 class UserTracker {
@@ -34,12 +36,17 @@ class UserTracker {
         existingSession.requestCount++;
         existingSession.isReconnected = wasReconnected;
         
+        // Update user type based on visit count
+        existingSession.visitCount++;
+        existingSession.userType = this.determineUserType(existingSession);
+        
         return existingSession;
       }
     }
     
     // Create new session
     const userId = this.generateUserId();
+    const userType = this.detectBot(userAgent) ? 'bot' : 'new';
     const session: UserSession = {
       id: userId,
       ip,
@@ -47,7 +54,9 @@ class UserTracker {
       firstSeen: new Date(),
       lastSeen: new Date(),
       requestCount: 1,
-      isReconnected: false
+      isReconnected: false,
+      visitCount: 1,
+      userType
     };
     
     this.sessions.set(userId, session);
@@ -87,13 +96,62 @@ class UserTracker {
   }
 
   /**
-   * Get user display info for logging
+   * Determine user type based on visit count and behavior
+   */
+  private determineUserType(session: UserSession): 'new' | 'returning' | 'frequent' | 'bot' {
+    if (session.userType === 'bot') return 'bot';
+    if (session.visitCount >= 10) return 'frequent';
+    if (session.visitCount >= 2) return 'returning';
+    return 'new';
+  }
+
+  /**
+   * Detect if user agent indicates a bot
+   */
+  private detectBot(userAgent: string): boolean {
+    const botPatterns = [
+      'bot', 'crawler', 'spider', 'scraper', 'vercel-screenshot',
+      'googlebot', 'bingbot', 'slurp', 'duckduckbot', 'facebookexternalhit',
+      'twitterbot', 'linkedinbot', 'whatsapp', 'telegrambot'
+    ];
+    
+    const lowerUA = userAgent.toLowerCase();
+    return botPatterns.some(pattern => lowerUA.includes(pattern));
+  }
+
+  /**
+   * Get emoji indicator for user type
+   */
+  private getUserTypeEmoji(userType: string): string {
+    switch (userType) {
+      case 'new': return '🆕';
+      case 'returning': return '👋';
+      case 'frequent': return '⭐';
+      case 'bot': return '🤖';
+      default: return '👤';
+    }
+  }
+
+  /**
+   * Get user display info for logging with emoji indicators
    */
   getUserDisplay(session: UserSession): string {
-    if (session.isReconnected) {
-      return `user:${session.id} (reconnected)`;
+    const emoji = this.getUserTypeEmoji(session.userType);
+    const baseDisplay = `user:${session.id}`;
+    
+    if (session.userType === 'bot') {
+      return `${emoji} ${baseDisplay} (bot)`;
     }
-    return `user:${session.id}`;
+    
+    if (session.isReconnected) {
+      return `${emoji} ${baseDisplay} (reconnected, visit #${session.visitCount})`;
+    }
+    
+    if (session.visitCount > 1) {
+      return `${emoji} ${baseDisplay} (visit #${session.visitCount})`;
+    }
+    
+    return `${emoji} ${baseDisplay}`;
   }
 
   /**
@@ -113,23 +171,40 @@ class UserTracker {
   }
 
   /**
-   * Get session statistics
+   * Get session statistics with user type breakdown
    */
-  getStats(): { totalSessions: number; activeSessions: number } {
+  getStats(): { 
+    totalSessions: number; 
+    activeSessions: number;
+    userTypes: { [key: string]: number };
+    emojiStats: string;
+  } {
     const now = new Date();
     const fiveMinutes = 5 * 60 * 1000;
     
     let activeSessions = 0;
+    const userTypes: { [key: string]: number } = {
+      new: 0,
+      returning: 0,
+      frequent: 0,
+      bot: 0
+    };
+    
     for (const session of this.sessions.values()) {
       const timeDiff = now.getTime() - session.lastSeen.getTime();
       if (timeDiff < fiveMinutes) {
         activeSessions++;
       }
+      userTypes[session.userType]++;
     }
+    
+    const emojiStats = `🆕${userTypes.new} 👋${userTypes.returning} ⭐${userTypes.frequent} 🤖${userTypes.bot}`;
     
     return {
       totalSessions: this.sessions.size,
-      activeSessions
+      activeSessions,
+      userTypes,
+      emojiStats
     };
   }
 }
