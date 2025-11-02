@@ -1,5 +1,7 @@
-import { getConnectionStatus } from '../config/database';
 import { userTracker } from './user-tracker';
+import mongoose from 'mongoose';
+
+const getConnectionStatus = () => mongoose.connection.readyState === 1;
 
 export interface ServerMetrics {
   uptime: number;

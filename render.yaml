@@ -1,11 +1,11 @@
 services:
   # Private API service - not accessible from public internet
   - type: private
-    name: pack-go-movers-api-private
+    name: packmovego-api-private
     env: node
-    repo: https://github.com/SereneAura2/PackMoveGO-API
+    repo: https://github.com/SereneAura2/PackMoveGO-API/server
     buildCommand: npm install && npm run build
-    startCommand: node render-entry.js
+    startCommand: node dist/src/server-entry.js
     # Load balancing configuration for private service
     scaling:
       minInstances: 2
@@ -13,7 +13,7 @@ services:
       targetConcurrency: 10
       targetCpuUtilizationPercent: 70
     # Private service configuration
-    port: 3000
+    # Note: PORT is automatically assigned by Render, no need to set it explicitly
     internalOnly: true
     envVars:
       - key: NODE_ENV
@@ -102,18 +102,18 @@ services:
 
   # Public gateway service - accessible from internet
   - type: web
-    name: pack-go-movers-gateway
+    name: packmovego-gateway
     env: node
-    repo: https://github.com/SereneAura2/PackMoveGO-API
+    repo: https://github.com/SereneAura2/PackMoveGO-API/gateway
     buildCommand: npm install && npm run build
-    startCommand: node render-gateway-entry.js
+    startCommand: node dist/src/gateway/gateway-entry.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: SERVICE_TYPE
         value: gateway
       - key: PRIVATE_API_URL
-        value: "http://pack-go-movers-api-private:3000"
+        value: "http://packmovego-api-private:10000"
       - key: CORS_ORIGIN
         value: https://www.packmovego.com,https://packmovego.com
       - key: JWT_SECRET
@@ -121,6 +121,8 @@ services:
       - key: API_KEY_ENABLED
         value: true
       - key: API_KEY_FRONTEND
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: ARCJET_KEY
         value: "SET_IN_RENDER_DASHBOARD"
     healthCheckPath: /health
     autoDeploy: true

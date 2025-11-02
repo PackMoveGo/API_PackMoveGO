@@ -41,63 +41,54 @@ import SocketUtils from './util/socket-utils';
 import JWTUtils from './util/jwt-utils';
 
 // Middleware imports
-import { securityMiddleware } from './middleware/security';
-import { errorHandler, requestIdMiddleware } from './middleware/error-handler';
-import { optionalAuth } from './middleware/authMiddleware';
-import { createCORSJWT } from './middleware/cors-jwt';
+import { securityMiddleware } from './middlewares/security';
+import { errorHandler, requestIdMiddleware } from './middlewares/error-handler';
+import { optionalAuth } from './middlewares/authMiddleware';
+import { createCORSJWT } from './middlewares/cors-jwt';
 import { performanceMiddleware } from './util/performance-monitor';
 import { advancedRateLimiter, burstProtection } from './util/api-limiter';
 
 // Route imports
-import signupRoutes from './route/signup';
-import sectionRoutes from './route/sectionRoutes';
-import securityRoutes from './route/securityRoutes';
-import prelaunchRoutes from './route/prelaunchRoutes';
-import authRoutes from './route/authRoutes';
-import sshRoutes from './route/sshRoutes';
-import dataRoutes from './route/dataRoutes';
-import servicesRoutes from './route/servicesRoutes';
-import analyticsRoutes from './route/analyticsRoutes';
-import privateNetworkRoutes from './route/privateNetworkRoutes';
-import loadBalancerRoutes from './route/loadBalancerRoutes';
+import signupRoutes from './routes/signup';
+import sectionRoutes from './routes/sectionRoutes';
+import securityRoutes from './routes/securityRoutes';
+import dataRoutes from './routes/dataRoutes';
+import servicesRoutes from './routes/servicesRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
+import privateNetworkRoutes from './routes/privateNetworkRoutes';
+import loadBalancerRoutes from './routes/loadBalancerRoutes';
 import v0Routes from './routes/v0-routes';
-import bookingRoutes from './route/bookingRoutes';
-import chatRoutes from './route/chatRoutes';
-import paymentRoutes from './route/paymentRoutes';
+import bookingRoutes from './routes/bookingRoutes';
+import chatRoutes from './routes/chatRoutes';
+import paymentRoutes from './routes/paymentRoutes';
+// SSD_Alt merged routes
+import authRouterAlt from './routes/authRoutes-alt';
+import subscriptionRouter from './routes/subscriptionRoutes';
+import workflowRouter from './routes/workflowRoutes';
+import arcjetMiddleware from './middlewares/arcjet-middleware';
 
 // Utilities
 import serverMonitor from './util/monitor';
 import loadBalancer from './util/load-balancer';
 import { log, consoleLogger } from './util/console-logger';
 import { userTracker } from './util/user-tracker';
+import { sessionLogger } from './util/session-logger';
 
-// Conditional imports to avoid build errors
-let validateEnvironment: any;
+// Load environment configuration
+import envLoader from '../config/env';
 
-try {
-  // Check if we're running the compiled version or TypeScript version
-  const isCompiled = __filename.endsWith('.js') && __dirname.includes('dist');
-  const envValidationPath = isCompiled ? '../config/envValidation' : '../../config/envValidation';
-  
-  const envValidation = require(envValidationPath);
-  validateEnvironment = envValidation.validateEnvironment;
-} catch (error) {
-  consoleLogger.warning('Environment validation not available');
-  validateEnvironment = () => ({ 
-    NODE_ENV: process.env.NODE_ENV || 'development', 
-    PORT: parseInt(process.env.PORT || '3000', 10) 
-  });
-}
-
-// Load environment variables
-const isCompiled = __filename.endsWith('.js') && __dirname.includes('dist');
-const envPath = isCompiled ? '../config/.env' : '../../config/.env';
-dotenv.config({ path: path.join(__dirname, envPath) });
+const config = envLoader.getConfig();
 
 // Validate environment configuration
 let envConfig;
 try {
-  envConfig = validateEnvironment();
+  envConfig = {
+    NODE_ENV: config.NODE_ENV,
+    PORT: parseInt(config.PORT, 10),
+    CORS_ORIGIN: envLoader.getCorsOrigins(),
+    CORS_METHODS: config.CORS_METHODS,
+    CORS_ALLOWED_HEADERS: config.CORS_ALLOWED_HEADERS
+  };
   consoleLogger.success('Environment validation passed');
 } catch (error) {
   consoleLogger.failure('Environment validation failed', error);
@@ -109,6 +100,83 @@ const app = express();
 
 // Configure trust proxy for rate limiting behind load balancers
 app.set('trust proxy', 1);
+
+// Session logging middleware (logs all requests with timestamps)
+app.use(sessionLogger.middleware());
+
+// Start periodic session stats logging (every 5 minutes)
+sessionLogger.startPeriodicLogging(300000);
+
+// Block all direct server access (must come from gateway)
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Debug: Log all headers to see what's arriving
+  console.log('🔍 Server - Incoming request headers:', {
+    path: req.path,
+    host: req.headers.host,
+    'x-gateway-request': req.headers['x-gateway-request'],
+    'x-gateway-service': req.headers['x-gateway-service'],
+    'all headers': Object.keys(req.headers)
+  });
+  
+  // Check if request has the special gateway header
+  const hasGatewayHeader=req.headers['x-gateway-request']==='true';
+  
+  console.log(`🔍 Server - Gateway header check: hasGatewayHeader=${hasGatewayHeader}, NODE_ENV=${config.NODE_ENV}`);
+  
+  // In development mode, allow requests with gateway header
+  if(config.NODE_ENV==='development') {
+    if(hasGatewayHeader) {
+      console.log('✅ Server - Request from gateway (development mode)');
+      return next();
+    }
+  }
+  
+  const host=req.headers.host || '';
+  
+  // Check if accessing server directly on port 3001 (development) or 8080 (production)
+  const isDirectServerAccess=host.includes(':3001') || host.includes(':8080');
+  
+  // If accessing server directly (not through gateway), redirect to packmovego.com
+  if(isDirectServerAccess && !hasGatewayHeader) {
+    console.log('🚫 Server - Direct access blocked, redirecting');
+    return res.redirect(301, 'https://packmovego.com');
+  }
+  
+  // In production, enforce gateway header
+  if(config.NODE_ENV==='production' && !hasGatewayHeader) {
+    console.log('🚫 Server - No gateway header in production, redirecting');
+    return res.redirect(301, 'https://packmovego.com');
+  }
+  
+  next();
+});
+
+// Enforce HTTPS for api.packmovego.com: reject HTTP with 403 and suggest redirect
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+  try {
+    const originalHost = (req.headers['x-original-host'] as string) || '';
+    const host = originalHost || (req.headers.host || '');
+    const forwardedProtoHeader = (req.headers['x-forwarded-proto'] as string) || '';
+    const forwardedProto = forwardedProtoHeader.split(',')[0]?.trim().toLowerCase();
+    const isHttps = req.secure || forwardedProto === 'https';
+    const isApiDomain = host === 'api.packmovego.com' || host.endsWith('.api.packmovego.com');
+
+    if (isApiDomain && !isHttps) {
+      const redirectUrl = 'https://www.packmovego.com';
+      res.setHeader('Location', redirectUrl);
+      return res.status(403).json({
+        success: false,
+        error: 'HTTPS Required',
+        message: 'Use HTTPS when calling api.packmovego.com',
+        redirect: redirectUrl,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (_) {
+    // If anything goes wrong here, do not block the request
+  }
+  next();
+});
 
 const server = createServer(app);
 const io = new Server(server, {
@@ -492,11 +560,14 @@ app.use(optionalAuth);
 
 // === API ROUTES ===
 // Core business routes
-app.use('/auth', authRoutes);
 app.use('/signup', signupRoutes);
 app.use('/sections', sectionRoutes);
 app.use('/security', securityRoutes);
-app.use('/prelaunch', prelaunchRoutes);
+
+// SSD_Alt merged routes (with Arcjet protection)
+app.use('/v0/auth', arcjetMiddleware, authRouterAlt);
+app.use('/v0/subscriptions', arcjetMiddleware, subscriptionRouter);
+app.use('/v0/workflows', arcjetMiddleware, workflowRouter);
 
 // Handle /api/v0/* requests and redirect to /v0/*
 app.use('/api/v0', (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -507,85 +578,7 @@ app.use('/api/v0', (req: express.Request, res: express.Response, next: express.N
   next();
 });
 
-// Add direct route for /v0/nav to handle frontend requests
-app.get('/v0/nav', (req: express.Request, res: express.Response) => {
-  const userSession = userTracker.getUserSession(req);
-  const userDisplay = userTracker.getUserDisplay(userSession);
-  console.log(`📡 Direct nav request: ${req.method} ${req.path} from ${userDisplay}`);
-  
-  // Set CORS headers for this specific endpoint
-  const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  
-  // Handle the nav request
-  try {
-    // Use fs.readFileSync instead of require for better compatibility
-    const fs = require('fs');
-    const path = require('path');
-    
-    // Try multiple possible paths for the nav.json file
-    const possiblePaths = [
-      path.join(__dirname, 'data', 'nav.json'),
-      path.join(__dirname, '..', 'data', 'nav.json'),
-      path.join(__dirname, 'src', 'data', 'nav.json'),
-      path.join(__dirname, '..', 'src', 'data', 'nav.json')
-    ];
-    
-    let navData;
-    let fileFound = false;
-    
-    for (const filePath of possiblePaths) {
-      if (fs.existsSync(filePath)) {
-        try {
-          const fileContent = fs.readFileSync(filePath, 'utf8');
-          navData = JSON.parse(fileContent);
-          fileFound = true;
-          console.log(`✅ Nav data loaded from: ${filePath}`);
-          break;
-        } catch (error) {
-          console.error(`❌ Error reading ${filePath}:`, error);
-        }
-      }
-    }
-    
-    if (!fileFound) {
-      console.error('❌ Nav.json not found in any of the expected locations:', possiblePaths);
-      return res.status(500).json({ 
-        error: 'Failed to load navigation data',
-        message: 'Navigation data file not found',
-        debug: {
-          __dirname,
-          possiblePaths
-        }
-      });
-    }
-    
-    return res.json(navData);
-  } catch (error) {
-    console.error('❌ Error loading nav data:', error);
-    return res.status(500).json({ 
-      error: 'Failed to load navigation data',
-      message: 'Could not load navigation data'
-    });
-  }
-});
-
-// Handle OPTIONS for /v0/nav
-app.options('/v0/nav', (req: express.Request, res: express.Response) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.status(200).end();
-});
+// /v0/* routes are now handled by v0-routes.ts
 
 // Specific handler for common frontend requests
 app.get('/api/v0/nav.json', (req: express.Request, res: express.Response) => {
@@ -594,8 +587,8 @@ app.get('/api/v0/nav.json', (req: express.Request, res: express.Response) => {
   return res.redirect('/v0/nav');
 });
 
-// Handle auth status requests
-app.get('/api/auth/status', (req: express.Request, res: express.Response) => {
+// Handle auth status requests (both /api/auth/status and /auth/status)
+const authStatusHandler = (req: express.Request, res: express.Response) => {
   console.log(`📡 Auth status request: ${req.method} ${req.path} from ${req.ip}`);
   
   // Set CORS headers for this specific endpoint
@@ -614,10 +607,13 @@ app.get('/api/auth/status', (req: express.Request, res: express.Response) => {
     message: 'Auth status endpoint',
     timestamp: new Date().toISOString()
   });
-});
+};
 
-// Handle OPTIONS for /api/auth/status
-app.options('/api/auth/status', (req: express.Request, res: express.Response) => {
+app.get('/api/auth/status', authStatusHandler);
+app.get('/auth/status', authStatusHandler);
+
+// Handle OPTIONS for auth status (both paths)
+const authStatusOptionsHandler = (req: express.Request, res: express.Response) => {
   const origin = req.headers.origin;
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -626,7 +622,10 @@ app.options('/api/auth/status', (req: express.Request, res: express.Response) =>
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
   res.status(200).end();
-});
+};
+
+app.options('/api/auth/status', authStatusOptionsHandler);
+app.options('/auth/status', authStatusOptionsHandler);
 
 // Specific handler for health endpoint
 app.get('/api/v0/health', (req: express.Request, res: express.Response) => {
@@ -644,7 +643,6 @@ app.use('/v1/chat', chatRoutes);
 app.use('/v1/payments', paymentRoutes);
 
 // Infrastructure routes
-app.use('/ssh', sshRoutes);
 app.use('/internal', privateNetworkRoutes);
 app.use('/load-balancer', loadBalancerRoutes);
 
@@ -929,53 +927,116 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 const serviceType = process.env.SERVICE_TYPE || 'web';
 const isPrivateService = serviceType === 'private';
 
-httpServer = server.listen(port, '0.0.0.0', () => {
-  consoleLogger.serverStart(port, process.env.NODE_ENV || 'development');
-  
-  // Add a test endpoint for logging verification
-  console.log('🧪 Test endpoint available: GET /test-logging');
-  console.log('📊 All requests will now be logged to Render console');
-  console.log('🌐 Server is ready to accept requests');
-  
-  if (isPrivateService) {
-    consoleLogger.info('system', '🔒 Running as PRIVATE service - not accessible from public internet');
-    consoleLogger.info('system', '📡 Only accessible by other services in private network');
-  }
-  
-  const endpoints = [
-    `Health Check: http://${localNetwork}:${port}/health`,
-    `Data API: http://${localNetwork}:${port}/data/:name`,
-    'Content APIs: /v0/blog, /v0/about, /v0/nav, /v0/contact, /v0/referral',
-    'Content APIs: /v0/reviews, /v0/locations, /v0/supplies, /v0/services, /v0/testimonials',
-    'Enhanced Services: /v1/services, /v1/services/:serviceId/quote, /v1/services/analytics',
-    `User Routes: http://${localNetwork}:${port}/signup`,
-    `Section Routes: http://${localNetwork}:${port}/sections`,
-    `Security Routes: http://${localNetwork}:${port}/security`,
-    `Prelaunch Routes: http://${localNetwork}:${port}/prelaunch`
-  ];
-  
-  consoleLogger.endpointList(endpoints);
-  
-  const services = {
-            'MongoDB': '✅ Connected',
-    'JWT': process.env.JWT_SECRET ? '✅ Configured' : '❌ Not configured',
-    'Stripe': process.env.STRIPE_SECRET_KEY ? '✅ Configured' : '❌ Not configured',
-    'Email': process.env.EMAIL_USER ? '✅ Configured' : '❌ Not configured'
-  };
-  
-  consoleLogger.serviceStatus(services);
-  consoleLogger.serverReady();
-});
+const USE_SSL = config.USE_SSL;
+const SSL_KEY = config.SSL_KEY_PATH;
+const SSL_CERT = config.SSL_CERT_PATH;
 
-consoleLogger.environmentCheck(envConfig.NODE_ENV, port);
-consoleLogger.warning('SSH Server disabled - key file missing');
+// SSH Server setup
+const SSH_ENABLED = config.SSH_ENABLED;
+let sshServer: any = null;
+
+if (SSH_ENABLED) {
+  try {
+    const { sshServer: ssh } = require('../config/certs/sshServer');
+    sshServer = ssh;
+    consoleLogger.info('system', '🔐 SSH server enabled');
+  } catch (error) {
+    consoleLogger.warning('SSH server not available');
+  }
+}
+
+if (USE_SSL && fs.existsSync(SSL_KEY) && fs.existsSync(SSL_CERT)) {
+  const https = require('https');
+  const httpsOptions = {
+    key: fs.readFileSync(SSL_KEY),
+    cert: fs.readFileSync(SSL_CERT)
+  };
+  httpServer = https.createServer(httpsOptions, app).listen(port, '0.0.0.0', () => {
+    consoleLogger.serverStart(`${port} (HTTPS)`, config.NODE_ENV);
+    consoleLogger.info('system', '🔐 HTTPS enabled for server');
+    
+    if (isPrivateService) {
+      consoleLogger.info('system', '🔒 Running as PRIVATE service - not accessible from public internet');
+      consoleLogger.info('system', '📡 Only accessible by other services in private network');
+    }
+    
+    // Add a test endpoint for logging verification
+    console.log('🧪 Test endpoint available: GET /test-logging');
+    console.log('📊 All requests will now be logged to Render console');
+    console.log('🌐 Server is ready to accept requests');
+    
+    const endpoints = [
+      `Health Check: https://${localNetwork}:${port}/health`,
+      `Data API: https://${localNetwork}:${port}/data/:name`,
+      'Content APIs: /v0/blog, /v0/about, /v0/nav, /v0/contact, /v0/referral',
+      'Content APIs: /v0/reviews, /v0/locations, /v0/supplies, /v0/services, /v0/testimonials',
+      'Enhanced Services: /v1/services, /v1/services/:serviceId/quote, /v1/services/analytics',
+      `User Routes: https://${localNetwork}:${port}/signup`,
+      `Section Routes: https://${localNetwork}:${port}/sections`,
+      `Security Routes: https://${localNetwork}:${port}/security`,
+      `Prelaunch Routes: https://${localNetwork}:${port}/prelaunch`
+    ];
+    
+    consoleLogger.endpointList(endpoints);
+    
+    const services = {
+      'MongoDB': '✅ Connected',
+      'JWT': config.JWT_SECRET ? '✅ Configured' : '❌ Not configured',
+      'Stripe': config.STRIPE_SECRET_KEY ? '✅ Configured' : '❌ Not configured',
+      'Email': config.EMAIL_USER ? '✅ Configured' : '❌ Not configured'
+    };
+    
+    consoleLogger.serviceStatus(services);
+    consoleLogger.serverReady();
+  });
+} else {
+  httpServer = server.listen(port, '0.0.0.0', () => {
+    consoleLogger.serverStart(port, config.NODE_ENV);
+    
+    if (isPrivateService) {
+      consoleLogger.info('system', '🔒 Running as PRIVATE service - not accessible from public internet');
+      consoleLogger.info('system', '📡 Only accessible by other services in private network');
+    }
+    
+    // Add a test endpoint for logging verification
+    console.log('🧪 Test endpoint available: GET /test-logging');
+    console.log('📊 All requests will now be logged to Render console');
+    console.log('🌐 Server is ready to accept requests');
+    
+    const endpoints = [
+      `Health Check: http://${localNetwork}:${port}/health`,
+      `Data API: http://${localNetwork}:${port}/data/:name`,
+      'Content APIs: /v0/blog, /v0/about, /v0/nav, /v0/contact, /v0/referral',
+      'Content APIs: /v0/reviews, /v0/locations, /v0/supplies, /v0/services, /v0/testimonials',
+      'Enhanced Services: /v1/services, /v1/services/:serviceId/quote, /v1/services/analytics',
+      `User Routes: http://${localNetwork}:${port}/signup`,
+      `Section Routes: http://${localNetwork}:${port}/sections`,
+      `Security Routes: http://${localNetwork}:${port}/security`,
+      `Prelaunch Routes: http://${localNetwork}:${port}/prelaunch`
+    ];
+    
+    consoleLogger.endpointList(endpoints);
+    
+    const services = {
+      'MongoDB': '✅ Connected',
+      'JWT': config.JWT_SECRET ? '✅ Configured' : '❌ Not configured',
+      'Stripe': config.STRIPE_SECRET_KEY ? '✅ Configured' : '❌ Not configured',
+      'Email': config.EMAIL_USER ? '✅ Configured' : '❌ Not configured'
+    };
+    
+    consoleLogger.serviceStatus(services);
+    consoleLogger.serverReady();
+  });
+}
+
+consoleLogger.environmentCheck(config.NODE_ENV, port);
 
 // Log key environment variables for debugging
 console.log('🔧 Environment Variables:');
-console.log(`   NODE_ENV: ${process.env.NODE_ENV}`);
-console.log(`   PORT: ${process.env.PORT}`);
-console.log(`   LOG_LEVEL: ${process.env.LOG_LEVEL || 'info'}`);
-console.log(`   CORS_ORIGINS: ${process.env.CORS_ORIGINS || 'not set'}`);
+console.log(`   NODE_ENV: ${config.NODE_ENV}`);
+console.log(`   PORT: ${config.PORT}`);
+console.log(`   LOG_LEVEL: ${config.LOG_LEVEL}`);
+console.log(`   CORS_ORIGINS: ${config.CORS_ORIGIN}`);
 console.log('📊 Request logging is now ACTIVE for all endpoints');
 
 // Export for testing

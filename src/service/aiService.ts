@@ -1,4 +1,4 @@
-import { configManager } from '../config/app-config';
+import { configManager } from '../util/app-config-stub';
 import { consoleLogger } from '../util/console-logger';
 
 interface AIResponse {

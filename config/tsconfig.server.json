@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "../src/gateway/**/*",
+    "../node_modules",
+    "../dist",
+    "../test",
+    "../**/*.deprecated.*"
+  ]
+}

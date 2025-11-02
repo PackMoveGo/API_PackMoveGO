@@ -1,0 +1,70 @@
+{
+  "moves": [
+    {
+      "id": "move_001",
+      "customerName": "Sarah Johnson",
+      "customerInitials": "SJ",
+      "fromLocation": "San Francisco, CA",
+      "toLocation": "Los Angeles, CA",
+      "moveDate": "2025-10-28T10:00:00Z",
+      "moveType": "Residential",
+      "status": "completed",
+      "rating": 5,
+      "testimonial": "The team was professional, efficient, and took great care of our belongings. Highly recommend!",
+      "isVerified": true
+    },
+    {
+      "id": "move_002",
+      "customerName": "Michael Chen",
+      "customerInitials": "MC",
+      "fromLocation": "Oakland, CA",
+      "toLocation": "San Jose, CA",
+      "moveDate": "2025-10-25T14:30:00Z",
+      "moveType": "Office",
+      "status": "completed",
+      "rating": 5,
+      "testimonial": "Best moving experience ever! They handled our office equipment with extreme care.",
+      "isVerified": true
+    },
+    {
+      "id": "move_003",
+      "customerName": "Emily Rodriguez",
+      "customerInitials": "ER",
+      "fromLocation": "Berkeley, CA",
+      "toLocation": "Sacramento, CA",
+      "moveDate": "2025-10-20T09:00:00Z",
+      "moveType": "Residential",
+      "status": "completed",
+      "rating": 4,
+      "testimonial": "Quick and efficient service. The movers were friendly and professional.",
+      "isVerified": true
+    },
+    {
+      "id": "move_004",
+      "customerName": "David Thompson",
+      "customerInitials": "DT",
+      "fromLocation": "San Diego, CA",
+      "toLocation": "San Francisco, CA",
+      "moveDate": "2025-10-15T11:00:00Z",
+      "moveType": "Residential",
+      "status": "completed",
+      "rating": 5,
+      "testimonial": "Exceeded expectations! Moved our 3-bedroom home without a single issue.",
+      "isVerified": true
+    },
+    {
+      "id": "move_005",
+      "customerName": "Jessica Park",
+      "customerInitials": "JP",
+      "fromLocation": "Palo Alto, CA",
+      "toLocation": "Mountain View, CA",
+      "moveDate": "2025-11-01T08:00:00Z",
+      "moveType": "Apartment",
+      "status": "in-progress",
+      "rating": null,
+      "testimonial": null,
+      "isVerified": false
+    }
+  ]
+}
+

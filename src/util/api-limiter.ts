@@ -16,9 +16,9 @@ export const createAdvancedRateLimiter = () => {
         return 1000; // 1000 requests per 15 minutes
       }
       
-      // Frontend API key gets medium limits
+      // Frontend API key gets high limits
       if (apiKey === process.env.API_KEY_FRONTEND) {
-        return 500; // 500 requests per 15 minutes
+        return 2000; // 2000 requests per 15 minutes
       }
       
       // IP whitelisted gets medium limits
@@ -160,7 +160,7 @@ export const createAdvancedRateLimiter = () => {
 // Burst protection for high-frequency requests
 export const burstProtection = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 30, // 30 requests per minute burst
+  max: 100, // 100 requests per minute burst
   message: {
     success: false,
     error: 'Burst limit exceeded',

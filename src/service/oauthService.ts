@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { configManager } from '../config/app-config';
-import { User } from '../model/userModel';
+import { configManager } from '../util/app-config-stub';
+import { User } from '../models/userModel';
 import { consoleLogger } from '../util/console-logger';
 import { sendSuccess, sendError } from '../util/response-formatter';
 import JWTUtils from '../util/jwt-utils';

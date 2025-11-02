@@ -1,4 +1,4 @@
-import User, { IUser } from '../model/userModel';
+import User, { IUser } from '../models/userModel';
 import JWTUtils from '../util/jwt-utils';
 import OAuthService, { oauthService } from './oauthService';
 import crypto from 'crypto';

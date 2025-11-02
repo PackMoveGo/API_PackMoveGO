@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "../src/gateway/**/*",
+    "../src/middlewares/security.ts",
+    "../src/util/console-logger.ts",
+    "./**/*"
+  ],
+  "exclude": [
+    "../src/server.ts",
+    "../src/server-entry.ts",
+    "../src/routes/**/*",
+    "../src/controllers/**/*",
+    "../src/service/**/*",
+    "../src/models/**/*",
+    "../src/type/**/*",
+    "../src/database/**/*",
+    "../node_modules",
+    "../dist",
+    "../test",
+    "../**/*.deprecated.*"
+  ]
+}

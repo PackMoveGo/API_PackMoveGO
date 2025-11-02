@@ -1,4 +1,4 @@
-import User from '../model/userModel';
+import User from '../models/userModel';
 import mongoose from 'mongoose';
 
 export interface IUserData {
@@ -12,45 +12,45 @@ interface MongoError extends Error {
   code?: number;
 }
 
-export const createUser = async (userData: IUserData) => {
+export const createUser=async (userData: IUserData) => {
   try {
     console.log('Attempting to create user with email:', userData.email);
     
-    const existingUser = await User.findOne({ email: userData.email });
-    if (existingUser) {
+    const existingUser=await (User.findOne as any)({email: userData.email});
+    if(existingUser) {
       console.log('User already exists with email:', userData.email);
       throw new Error('Email already registered');
     }
 
-    const user = new User(userData);
+    const user=new User(userData);
     await user.save();
     console.log('User created successfully:', user._id);
     return user;
-  } catch (error) {
+  }catch(error){
     console.error('Error in createUser:', error);
-    if (error instanceof mongoose.Error.ValidationError) {
+    if(error instanceof mongoose.Error.ValidationError){
       throw error;
     }
     // Check for duplicate key error (MongoDB error code 11000)
-    const mongoError = error as MongoError;
-    if (mongoError.code === 11000) {
+    const mongoError=error as MongoError;
+    if(mongoError.code===11000){
       throw new Error('Email already registered');
     }
     throw new Error('Error creating user');
   }
 };
 
-export const findUserByEmail = async (email: string) => {
+export const findUserByEmail=async (email: string) => {
   try {
     console.log('Searching for user with email:', email);
-    const user = await User.findOne({ email });
-    if (user) {
+    const user=await (User.findOne as any)({email});
+    if(user) {
       console.log('User found:', user._id);
-    } else {
+    }else{
       console.log('No user found with email:', email);
     }
     return user;
-  } catch (error) {
+  }catch(error){
     console.error('Error in findUserByEmail:', error);
     throw new Error('Error finding user');
   }
