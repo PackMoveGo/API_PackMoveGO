@@ -17,7 +17,8 @@ const config = envLoader.getConfig();
 // Arcjet protection
 import aj from '../../config/arcjet';
 const app = express();
-const PORT = config.GATEWAY_PORT || config.PORT;
+// On Render, use PORT env var (10000), otherwise use GATEWAY_PORT for local dev
+const PORT = config.PORT || config.GATEWAY_PORT;
 const PRIVATE_API_URL = config.PRIVATE_API_URL;
 
 // Security middleware
