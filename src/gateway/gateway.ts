@@ -393,10 +393,11 @@ const proxy=createProxyMiddleware({
   target: PRIVATE_API_URL,
   changeOrigin: true,
   secure: false,
-  onProxyReq(proxyReq, req, res) {
-    console.log('🔄 Gateway - onProxyReq called for:', req.url);
-    
-    // Forward the API key
+  on: {
+    proxyReq(proxyReq, req, res) {
+      console.log('🔄 Gateway - onProxyReq called for:', req.url);
+      
+      // Forward the API key
     const apiKey=(req.headers['x-api-key'] || req.headers['authorization']) as string;
     if(apiKey){
       proxyReq.setHeader('x-api-key', apiKey);
@@ -413,20 +414,21 @@ const proxy=createProxyMiddleware({
     
     // Log all headers being sent
     console.log('📤 Gateway - All proxy request headers:', proxyReq.getHeaders());
-  },
-  onProxyRes(proxyRes, req, res) {
-    console.log(`✅ Gateway - Proxy response: ${proxyRes.statusCode} for ${req.url}`);
-    res.setHeader('X-Gateway-Service', 'pack-go-movers-gateway');
-    res.setHeader('X-Proxied-By', 'gateway');
-  },
-  onError(err, req, res) {
-    console.error('❌ Gateway - Proxy error:', err.message);
-    if(!res.headersSent){
-      (res as any).status(502).json({
-        error: 'Gateway Error',
-        message: 'Unable to connect to private API service',
-        timestamp: new Date().toISOString()
-      });
+    },
+    proxyRes(proxyRes, req, res) {
+      console.log(`✅ Gateway - Proxy response: ${proxyRes.statusCode} for ${req.url}`);
+      res.setHeader('X-Gateway-Service', 'pack-go-movers-gateway');
+      res.setHeader('X-Proxied-By', 'gateway');
+    },
+    error(err, req, res) {
+      console.error('❌ Gateway - Proxy error:', err.message);
+      if(res && 'headersSent' in res && !res.headersSent){
+        (res as any).status(502).json({
+          error: 'Gateway Error',
+          message: 'Unable to connect to private API service',
+          timestamp: new Date().toISOString()
+        });
+      }
     }
   }
 });

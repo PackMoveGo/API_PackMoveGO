@@ -2,10 +2,10 @@
   "name": "pack-go-movers-backend",
   "version": "1.0.0",
   "description": "Backend for Pack Go Movers",
-  "main": "index.js",
+  "main": "dist/src/server-entry.js",
   "scripts": {
-    "build": "tsc --noEmitOnError false || true",
-    "build:clean": "rm -rf dist && tsc --noEmitOnError false || true",
+    "build": "tsc",
+    "build:clean": "rm -rf dist && tsc",
     "build:server": "tsc --project config/tsconfig.server.json --noEmitOnError false || true",
     "build:gateway": "tsc --project config/tsconfig.gateway.json --noEmitOnError false || true",
     "postinstall": "npm run build",

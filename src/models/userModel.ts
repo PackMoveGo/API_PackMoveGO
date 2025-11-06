@@ -427,6 +427,6 @@ interface IUserModel extends mongoose.Model<IUser> {
 }
 
 // Export the model (use existing model if already compiled)
-export const User = (mongoose.models.User as mongoose.Model<IUser, IUserModel>) || mongoose.model<IUser, IUserModel>('User', userSchema);
+export const User = (mongoose.models.User || mongoose.model<IUser>('User', userSchema)) as IUserModel;
 
 export default User; 

@@ -84,7 +84,7 @@ let envConfig;
 try {
   envConfig = {
     NODE_ENV: config.NODE_ENV,
-    PORT: parseInt(config.PORT, 10),
+    PORT: parseInt(String(config.PORT), 10),
     CORS_ORIGIN: envLoader.getCorsOrigins(),
     CORS_METHODS: config.CORS_METHODS,
     CORS_ALLOWED_HEADERS: config.CORS_ALLOWED_HEADERS
