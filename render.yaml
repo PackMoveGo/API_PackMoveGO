@@ -3,9 +3,9 @@ services:
   - type: private
     name: packmovego-api-private
     env: node
-    repo: https://github.com/SereneAura2/PackMoveGO-API/server
-    buildCommand: npm install && npm run build
-    startCommand: node dist/src/server-entry.js
+    repo: https://github.com/PackMoveGo/API_PackMoveGO
+    buildCommand: npm install
+    startCommand: npm run start:render:server
     # Load balancing configuration for private service
     scaling:
       minInstances: 2
@@ -104,9 +104,9 @@ services:
   - type: web
     name: packmovego-gateway
     env: node
-    repo: https://github.com/SereneAura2/PackMoveGO-API/gateway
-    buildCommand: npm install && npm run build
-    startCommand: node dist/src/gateway/gateway-entry.js
+    repo: https://github.com/PackMoveGo/Gateway_API_PackMoveGO
+    buildCommand: npm install
+    startCommand: npm run start:render:gateway
     envVars:
       - key: NODE_ENV
         value: production
