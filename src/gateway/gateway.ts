@@ -68,8 +68,8 @@ app.use(cors({
 
 // Arcjet protection middleware (bot detection, rate limiting, shield)
 app.use(async (req, res, next) => {
-  // Skip Arcjet for health endpoints (including Render's /api/health checks)
-  if(req.path==='/health' || req.path==='/v0/health' || req.path==='/api/health') {
+  // Skip Arcjet for Gateway's own health endpoint only (not proxied /health)
+  if(req.path==='/v0/health') {
     return next();
   }
   
@@ -174,9 +174,10 @@ app.use((req, res, next) => {
   console.log('>>> Gateway API Key Check - Path:', req.path);
   console.log('='.repeat(80) + '\n');
   
-  // Skip auth for health endpoints (including Render's /api/health checks)
-  if(req.path==='/health' || req.path==='/v0/health' || req.path==='/api/health') {
-    console.log(`>>> Skipping auth for health check: ${req.path}`);
+  // Skip auth ONLY for Gateway's own health endpoint (/v0/health)
+  // The /health endpoint will be proxied to Private API and requires API key
+  if(req.path==='/v0/health') {
+    console.log(`>>> Skipping auth for Gateway health check: ${req.path}`);
     return next();
   }
   
@@ -270,16 +271,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoints (both /health and /v0/health)
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    service: 'gateway',
-    timestamp: new Date().toISOString(),
-    privateApiUrl: PRIVATE_API_URL
-  });
-});
-
+// Health check endpoint - Gateway's own status
 app.get('/v0/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
@@ -289,6 +281,8 @@ app.get('/v0/health', (req, res) => {
     privateApiUrl: PRIVATE_API_URL
   });
 });
+
+// Note: /health endpoint removed - it now proxies to Private API's /v0/health
 
 // API root endpoint
 app.get('/', (req, res) => {
