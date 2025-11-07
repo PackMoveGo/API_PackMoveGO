@@ -68,8 +68,8 @@ app.use(cors({
 
 // Arcjet protection middleware (bot detection, rate limiting, shield)
 app.use(async (req, res, next) => {
-  // Skip Arcjet for health endpoints
-  if(req.path==='/health' || req.path==='/v0/health') {
+  // Skip Arcjet for health endpoints (including Render's /api/health checks)
+  if(req.path==='/health' || req.path==='/v0/health' || req.path==='/api/health') {
     return next();
   }
   
@@ -174,9 +174,9 @@ app.use((req, res, next) => {
   console.log('>>> Gateway API Key Check - Path:', req.path);
   console.log('='.repeat(80) + '\n');
   
-  // Skip auth for health endpoints
-  if(req.path==='/health' || req.path==='/v0/health') {
-    console.log(`>>> Skipping auth for ${req.path}`);
+  // Skip auth for health endpoints (including Render's /api/health checks)
+  if(req.path==='/health' || req.path==='/v0/health' || req.path==='/api/health') {
+    console.log(`>>> Skipping auth for health check: ${req.path}`);
     return next();
   }
   
