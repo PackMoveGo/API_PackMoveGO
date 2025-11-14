@@ -2,6 +2,7 @@ import User, { IUser } from '../models/userModel';
 import JWTUtils from '../util/jwt-utils';
 import OAuthService, { oauthService } from './oauthService';
 import crypto from 'crypto';
+import twilioService from './twilioService';
 
 export interface AuthResult {
   user: IUser;
@@ -15,11 +16,25 @@ export interface RegisterData {
   email: string;
   password: string;
   phone?: string;
+  location?: {
+    latitude?: number;
+    longitude?: number;
+    city?: string;
+    state?: string;
+    country?: string;
+  };
 }
 
 export interface LoginData {
   email: string;
   password: string;
+  location?: {
+    latitude?: number;
+    longitude?: number;
+    city?: string;
+    state?: string;
+    country?: string;
+  };
 }
 
 export class AuthService {
@@ -28,25 +43,44 @@ export class AuthService {
    */
   static async register(data: RegisterData): Promise<AuthResult> {
     // Check if user already exists
-    const existingUser = await User.findOne({ email: data.email.toLowerCase() });
-    if (existingUser) {
+    const existingUser=await User.findOne({ email: data.email.toLowerCase() });
+    if(existingUser){
       throw new Error('User with this email already exists');
     }
 
     // Create new user
-    const user = new User({
+    const user=new User({
       firstName: data.firstName,
       lastName: data.lastName,
       email: data.email.toLowerCase(),
       password: data.password,
       phone: data.phone,
-      role: 'user',
+      role: 'customer',
       isEmailVerified: false,
       isPhoneVerified: false
     });
 
+    // Store user location if provided
+    if(data.location && (data.location.latitude || data.location.city)){
+      if(!user.customerInfo){
+        user.customerInfo={
+          address: { street: '', city: '', state: '', zipCode: '', country: 'US' },
+          preferences: { preferredContactMethod: 'email', notificationsEnabled: true, marketingConsent: false },
+          emergencyContact: { name: '', phone: '', relationship: '' }
+        } as any;
+      }
+      user.customerInfo.lastKnownLocation={
+        latitude: data.location.latitude,
+        longitude: data.location.longitude,
+        city: data.location.city,
+        state: data.location.state,
+        country: data.location.country,
+        lastUpdated: new Date()
+      };
+    }
+
     // Generate email verification token
-    const verificationToken = user.generateEmailVerificationToken();
+    const verificationToken=user.generateEmailVerificationToken();
     await user.save();
 
     // TODO: Send verification email
@@ -74,19 +108,19 @@ export class AuthService {
    */
   static async login(data: LoginData): Promise<AuthResult> {
     // Find user with password included
-    const user = await User.findOne({ email: data.email.toLowerCase() }).select('+password');
-    if (!user) {
+    const user=await User.findOne({ email: data.email.toLowerCase() }).select('+password');
+    if(!user){
       throw new Error('Invalid credentials');
     }
 
     // Check if account is locked
-    if (user.isAccountLocked()) {
+    if(user.isAccountLocked()){
       throw new Error('Account is temporarily locked due to too many failed login attempts');
     }
 
     // Verify password
-    const isValidPassword = await user.comparePassword(data.password);
-    if (!isValidPassword) {
+    const isValidPassword=await user.comparePassword(data.password);
+    if(!isValidPassword){
       // Increment login attempts
       await user.incrementLoginAttempts();
       throw new Error('Invalid credentials');
@@ -95,19 +129,55 @@ export class AuthService {
     // Reset login attempts on successful login
     await user.resetLoginAttempts();
 
+    // Update user location if provided (for service area tracking)
+    if(data.location && user.role==='customer'){
+      if(!user.customerInfo){
+        user.customerInfo={
+          address: { street: '', city: '', state: '', zipCode: '', country: 'US' },
+          preferences: { preferredContactMethod: 'email', notificationsEnabled: true, marketingConsent: false },
+          emergencyContact: { name: '', phone: '', relationship: '' }
+        } as any;
+      }
+      if(!user.customerInfo.lastKnownLocation){
+        user.customerInfo.lastKnownLocation={} as any;
+      }
+      user.customerInfo.lastKnownLocation={
+        latitude: data.location.latitude,
+        longitude: data.location.longitude,
+        city: data.location.city || user.customerInfo.lastKnownLocation.city,
+        state: data.location.state || user.customerInfo.lastKnownLocation.state,
+        country: data.location.country || user.customerInfo.lastKnownLocation.country,
+        lastUpdated: new Date()
+      };
+    }
+
+    // Update last login info
+    user.lastLogin=new Date();
+    user.loginCount=(user.loginCount || 0)+1;
+
     // Generate tokens
-    const { accessToken, refreshToken, tokenId } = JWTUtils.generateTokenPair({
+    const { accessToken, refreshToken, tokenId }=JWTUtils.generateTokenPair({
       userId: (user._id as any).toString(),
       email: user.email,
       role: user.role
     });
 
     // Store refresh token
-    if (!user.refreshTokens) {
-      user.refreshTokens = [];
+    if(!user.refreshTokens){
+      user.refreshTokens=[];
     }
     user.refreshTokens.push(JWTUtils.hashToken(refreshToken));
     await user.save();
+
+    // Send SMS notification for login (if phone and Twilio configured)
+    if(user.phone && twilioService.isReady()){
+      const locationStr=data.location?.city && data.location?.state 
+        ? `${data.location.city}, ${data.location.state}` 
+        : undefined;
+      twilioService.sendLoginNotification(user.phone, locationStr).catch(err => 
+        console.error('Failed to send login SMS:', err)
+      );
+    }
 
     return { user, accessToken, refreshToken };
   }

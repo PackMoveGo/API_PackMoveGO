@@ -11,7 +11,7 @@ export const signUp=async (req:Request,res:Response,next:NextFunction)=>{
     const session=await mongoose.startSession();
     session.startTransaction();
     try{
-        const {name,email,password}=req.body;
+        const {name,email,password,location}=req.body;
         // Check if user already exists
         const existingUser=await (User.findOne as any)({email});
         if(existingUser){
@@ -22,7 +22,32 @@ export const signUp=async (req:Request,res:Response,next:NextFunction)=>{
         // Hash password
         const salt=await bcrypt.genSalt(10);
         const hashedPassword=await bcrypt.hash(password,salt);
-        const newUsers=await (User.create as any)([{name,email,password:hashedPassword}],{session});
+        
+        // Prepare user data with location if provided
+        const userData: any={name,email,password:hashedPassword};
+        
+        // Log location data for service area tracking
+        if(location){
+          console.log('📍 User signup location:', {
+            city: location.city,
+            state: location.state,
+            country: location.country,
+            coordinates: location.latitude && location.longitude ? `${location.latitude},${location.longitude}` : 'N/A'
+          });
+          
+          userData.customerInfo={
+            lastKnownLocation:{
+              latitude: location.latitude,
+              longitude: location.longitude,
+              city: location.city,
+              state: location.state,
+              country: location.country,
+              lastUpdated: new Date()
+            }
+          };
+        }
+        
+        const newUsers=await (User.create as any)([userData],{session});
         const token=jwt.sign({userId:newUsers[0]._id},JWT_SECRET,{expiresIn:JWT_EXPIRE_IN} as any);
         await session.commitTransaction();
         session.endSession();
@@ -43,7 +68,7 @@ export const signUp=async (req:Request,res:Response,next:NextFunction)=>{
 
 export const signIn=async (req:Request,res:Response,next:NextFunction)=>{
     try{
-        const {email,password}=req.body;
+        const {email,password,location}=req.body;
         
         // Validate input
         if(!email || !password){
@@ -85,6 +110,36 @@ export const signIn=async (req:Request,res:Response,next:NextFunction)=>{
         // Update last login
         user.lastLogin=new Date();
         user.loginCount=(user.loginCount || 0)+1;
+        
+        // Log and update location data for service area tracking
+        if(location){
+          console.log('📍 User login location:', {
+            email: user.email,
+            city: location.city,
+            state: location.state,
+            country: location.country,
+            coordinates: location.latitude && location.longitude ? `${location.latitude},${location.longitude}` : 'N/A'
+          });
+          
+          // Update customer location if role is customer
+          if(user.role==='customer'){
+            if(!user.customerInfo){
+              user.customerInfo={
+                address: { street: '', city: '', state: '', zipCode: '', country: 'US' },
+                preferences: { preferredContactMethod: 'email', notificationsEnabled: true, marketingConsent: false }
+              } as any;
+            }
+            user.customerInfo.lastKnownLocation={
+              latitude: location.latitude,
+              longitude: location.longitude,
+              city: location.city,
+              state: location.state,
+              country: location.country,
+              lastUpdated: new Date()
+            };
+          }
+        }
+        
         await user.save();
         
         // Generate JWT token

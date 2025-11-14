@@ -55,6 +55,14 @@ export interface IUser extends Document {
       phone: string;
       relationship: string;
     };
+    lastKnownLocation?: {
+      city?: string;
+      state?: string;
+      country?: string;
+      latitude?: number;
+      longitude?: number;
+      lastUpdated: Date;
+    };
   };
   
   // Mover specific fields
@@ -202,6 +210,14 @@ const userSchema = new Schema<IUser>({
       name: { type: String, default: '' },
       phone: { type: String, default: '' },
       relationship: { type: String, default: '' }
+    },
+    lastKnownLocation: {
+      city: { type: String, default: null },
+      state: { type: String, default: null },
+      country: { type: String, default: null },
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
+      lastUpdated: { type: Date, default: Date.now }
     }
   },
   
@@ -386,16 +402,40 @@ userSchema.methods.isEmailVerified = function(): boolean {
 };
 
 // Instance methods
-userSchema.methods.updateLocation = function(latitude: number, longitude: number) {
-  if (this.role === 'mover' && this.moverInfo) {
-    this.moverInfo.currentLocation = {
+userSchema.methods.updateLocation = function(latitude: number, longitude: number, city?: string, state?: string, country?: string) {
+  if(this.role==='mover' && this.moverInfo){
+    this.moverInfo.currentLocation={
       latitude,
       longitude,
       lastUpdated: new Date()
     };
     return this.save();
   }
-  throw new Error('Only movers can update location');
+  
+  // For customers, update lastKnownLocation
+  if(this.role==='customer'){
+    if(!this.customerInfo){
+      this.customerInfo={
+        address: { street: '', city: '', state: '', zipCode: '', country: 'US' },
+        preferences: { preferredContactMethod: 'email', notificationsEnabled: true, marketingConsent: false },
+        emergencyContact: { name: '', phone: '', relationship: '' }
+      } as any;
+    }
+    if(!this.customerInfo.lastKnownLocation){
+      this.customerInfo.lastKnownLocation={} as any;
+    }
+    this.customerInfo.lastKnownLocation={
+      latitude,
+      longitude,
+      city: city || this.customerInfo.lastKnownLocation.city,
+      state: state || this.customerInfo.lastKnownLocation.state,
+      country: country || this.customerInfo.lastKnownLocation.country,
+      lastUpdated: new Date()
+    };
+    return this.save();
+  }
+  
+  return this.save();
 };
 
 userSchema.methods.setAvailability = function(isAvailable: boolean) {
