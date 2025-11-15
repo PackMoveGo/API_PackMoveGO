@@ -63,6 +63,7 @@ import paymentRoutes from './routes/paymentRoutes';
 import contactRoutes from './routes/contactRoutes';
 import referralRoutes from './routes/referralRoutes';
 import quoteRoutes from './routes/quoteRoutes';
+import geolocationRoutes from './routes/geolocation';
 // SSD_Alt merged routes
 import authRouterAlt from './routes/authRoutes-alt';
 import subscriptionRouter from './routes/subscriptionRoutes';
@@ -129,6 +130,10 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
   const clientIp=req.ip || req.socket.remoteAddress || '';
   const isRenderInternal=clientIp.startsWith('10.') || clientIp.startsWith('::ffff:10.');
   
+  // Check if this is local production mode (localhost/127.0.0.1)
+  const host=req.headers.host || '';
+  const isLocalhost=host.includes('localhost') || host.includes('127.0.0.1') || clientIp==='127.0.0.1' || clientIp==='::1' || clientIp==='::ffff:127.0.0.1';
+  
   // In development mode, allow requests with gateway header
   if(config.NODE_ENV==='development') {
     if(hasGatewayHeader) {
@@ -137,23 +142,23 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
     }
   }
   
-  // In production, allow requests from Render internal network OR with gateway header
+  // In production, allow requests from Render internal network OR with gateway header OR localhost
   if(config.NODE_ENV==='production') {
-    if(hasGatewayHeader || isRenderInternal) {
+    if(hasGatewayHeader || isRenderInternal || isLocalhost) {
       if(isRenderInternal) {
         console.log(`✅ Server - Request from Render internal network (${clientIp})`);
+      } else if(isLocalhost) {
+        console.log(`✅ Server - Request from localhost (${clientIp})`);
       } else {
         console.log('✅ Server - Request has gateway header');
       }
       return next();
     }
     
-    // No gateway header and not from Render internal network - redirect
+    // No gateway header and not from Render internal network or localhost - redirect
     console.log(`🚫 Server - No gateway header in production from ${clientIp}, redirecting`);
     return res.redirect(301, 'https://packmovego.com');
   }
-  
-  const host=req.headers.host || '';
   
   // Check if accessing server directly on port 3001 (development) or 8080 (production)
   const isDirectServerAccess=host.includes(':3001') || host.includes(':8080');
@@ -653,6 +658,9 @@ app.get('/api/v0/health', (req: express.Request, res: express.Response) => {
 
 // V0 content routes
 app.use('/v0', v0Routes);
+
+// Geolocation proxy route
+app.use('/v0', geolocationRoutes);
 
 // Contact, referral, and quote routes (MongoDB-based)
 app.use('/v0/contact', contactRoutes);
