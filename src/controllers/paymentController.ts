@@ -35,19 +35,21 @@ interface Payment{
 }
 
 class PaymentController{
-  private stripe:Stripe;
+  private stripe:Stripe | null;
   private dataPath:string;
 
   constructor(){
-    // Validate Stripe key exists
-    if(!process.env['STRIPE_SECRET_KEY']){
-      throw new Error('STRIPE_SECRET_KEY not configured');
+    // Initialize Stripe if key is available (optional for services that don't use payments)
+    const stripeKey = process.env['STRIPE_SECRET_KEY'];
+    if(stripeKey){
+      this.stripe=new Stripe(stripeKey,{
+        apiVersion:'2023-10-16',
+        typescript:true
+      });
+    } else {
+      log.warn('payment', 'STRIPE_SECRET_KEY not configured - payment features will be disabled');
+      this.stripe = null as any; // Type assertion to allow optional usage
     }
-
-    this.stripe=new Stripe(process.env['STRIPE_SECRET_KEY'],{
-      apiVersion:'2023-10-16',
-      typescript:true
-    });
     this.dataPath=path.join(__dirname,'../data/bookings.json');
   }
 
@@ -89,6 +91,15 @@ class PaymentController{
 
       if(!booking){
         throw new PaymentError('Booking not found');
+      }
+
+      // Check if Stripe is configured
+      if(!this.stripe){
+        res.status(503).json({
+          error:'Payment service unavailable',
+          message:'Stripe is not configured. Please contact support.'
+        });
+        return;
       }
 
       // Generate idempotency key to prevent duplicate charges
@@ -167,6 +178,15 @@ class PaymentController{
         return;
       }
 
+      // Check if Stripe is configured
+      if(!this.stripe){
+        res.status(503).json({
+          error:'Payment service unavailable',
+          message:'Stripe is not configured. Please contact support.'
+        });
+        return;
+      }
+
       // Retrieve payment intent from Stripe
       const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
 
@@ -218,7 +238,7 @@ class PaymentController{
       }
 
       // If payment has Stripe ID, get latest status
-      if (payment.stripePaymentIntentId) {
+      if (payment.stripePaymentIntentId && this.stripe) {
         try {
           const paymentIntent = await this.stripe.paymentIntents.retrieve(payment.stripePaymentIntentId);
           payment.status = paymentIntent.status === 'succeeded' ? 'paid' : payment.status;
@@ -287,6 +307,15 @@ class PaymentController{
         throw new PaymentError('Payment has no Stripe reference');
       }
 
+      // Check if Stripe is configured
+      if(!this.stripe){
+        res.status(503).json({
+          error:'Payment service unavailable',
+          message:'Stripe is not configured. Please contact support.'
+        });
+        return;
+      }
+
       // Generate idempotency key for refund
       const idempotencyKey=`refund_${paymentId}_${Date.now()}`;
 
@@ -352,6 +381,13 @@ class PaymentController{
     if(!sig||!endpointSecret){
       log.error('payment','Webhook signature or secret missing',{hasSignature:!!sig,hasSecret:!!endpointSecret});
       res.status(400).json({error:'Missing signature or webhook secret'});
+      return;
+    }
+
+    // Check if Stripe is configured
+    if(!this.stripe){
+      log.error('payment','Stripe not configured for webhook');
+      res.status(503).json({error:'Payment service unavailable'});
       return;
     }
 
