@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDataFile } from '../controllers/dataController';
+// import { getDataFile } from '../controllers/dataController'; // Unused import
 import path from 'path';
 import fs from 'fs';
 
@@ -23,7 +23,7 @@ router.get('/health', (req, res) => {
     service: 'api',
     timestamp: new Date().toISOString(),
     uptime: uptime,
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env['NODE_ENV'] || 'development'
   });
 });
 
@@ -118,6 +118,7 @@ router.get('/recentMoves/total', (req, res) => {
 });
 
 // Generic handler for all /v0/* endpoints
+// @ts-ignore - Callback-based async pattern, response sent in callback
 router.get('/:name', (req, res) => {
   // Extract the name from the URL (e.g., /v0/nav -> nav)
   const { name } = req.params;
@@ -133,12 +134,11 @@ router.get('/:name', (req, res) => {
   }
   
   // Map of allowed files with their actual filenames (for case sensitivity)
+  // Note: 'reviews' and 'referral' are now handled by controllers, not static files
   const fileMap: Record<string, string> = {
     'nav': 'nav.json',
     'contact': 'contact.json',
-    'referral': 'referral.json',
     'blog': 'blog.json',
-    'reviews': 'reviews.json',
     'locations': 'locations.json',
     'supplies': 'supplies.json',
     'services': 'services.json',
@@ -176,27 +176,31 @@ router.get('/:name', (req, res) => {
   
   fs.readFile(filePath, 'utf8', (err, data) => {
     if (err) {
-      return res.status(404).json({ 
+      res.status(404).json({ 
         success: false,
         message: 'Data file not found',
         error: 'The requested data file could not be loaded',
         timestamp: new Date().toISOString()
       });
+      return;
     }
     
     // All files in fileMap are JSON
       try {
         const parsedData = JSON.parse(data);
-        return res.status(200).json(parsedData);
+        res.status(200).json(parsedData);
+        return;
       } catch (e) {
-        return res.status(500).json({ 
+        res.status(500).json({ 
           success: false,
           message: 'Server error',
           error: 'Invalid JSON format in data file',
           timestamp: new Date().toISOString()
         });
+        return;
     }
   });
+  // Callback-based async - response sent in callback, function returns void
 });
 
 // Handle OPTIONS for /recentMoves/total endpoint

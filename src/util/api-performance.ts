@@ -39,7 +39,7 @@ export class APIPerformanceMonitor {
   private totalRequests: number = 0;
   private slowQueryThreshold: number = 1000; // 1 second
   private memoryThreshold: number = 0.8; // 80% of available memory
-  private cpuThreshold: number = 0.7; // 70% CPU usage
+  // CPU threshold: 0.7 (70% CPU usage) - reserved for future use
 
   constructor() {
     this.startTime = Date.now();
@@ -62,7 +62,7 @@ export class APIPerformanceMonitor {
   public monitorRequest() {
     return (req: Request, res: Response, next: NextFunction) => {
       const startTime = Date.now();
-      const requestId = req.headers['x-request-id'] as string;
+      // Request ID available in req.headers['x-request-id'] if needed
 
       // Track request start
       this.totalRequests++;
@@ -91,7 +91,7 @@ export class APIPerformanceMonitor {
   /**
    * Record request metrics
    */
-  private recordRequest(duration: number, statusCode: number, path: string, method: string): void {
+  private recordRequest(duration: number, statusCode: number, _path: string, _method: string): void {
     this.requestTimes.push(duration);
     
     // Keep only last 1000 requests for average calculation

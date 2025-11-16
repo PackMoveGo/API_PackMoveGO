@@ -4,7 +4,9 @@ import JWTUtils from '../util/jwt-utils';
 export interface AuthenticatedRequest extends Request {
   user?: {
     userId: string;
-    email: string;
+    email?: string;
+    phone?: string;
+    username?: string;
     role: string;
   };
 }
@@ -12,7 +14,7 @@ export interface AuthenticatedRequest extends Request {
 /**
  * Middleware to verify JWT token and attach user to request
  */
-export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+export const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies.token;
 
   if (!token) {
@@ -25,8 +27,21 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
   }
 
   try {
-    const decoded = JWTUtils.verifyToken(token);
+    const decoded = await JWTUtils.verifyToken(token, true);
     if (decoded) {
+      // Verify fingerprint if available
+      const userAgent = req.get('User-Agent') || '';
+      const ipAddress = req.ip || req.socket.remoteAddress || '';
+      
+      if (decoded.fingerprint && !JWTUtils.verifyFingerprint(token, userAgent, ipAddress)) {
+        res.status(401).json({
+          success: false,
+          message: 'Token fingerprint mismatch - security violation',
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+      
       req.user = decoded;
       next();
     } else {
@@ -115,12 +130,12 @@ export const requireRole = (role: string) => {
 /**
  * Optional authentication middleware (doesn't fail if no token)
  */
-export const optionalAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+export const optionalAuth = async (req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> => {
   const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies.token;
 
   if (token) {
     try {
-      const decoded = JWTUtils.verifyToken(token);
+      const decoded = await JWTUtils.verifyToken(token, true);
       if (decoded) {
         req.user = decoded;
       }

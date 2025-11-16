@@ -60,7 +60,7 @@ function validateFrontendAccess(req: Request, res: Response, next: NextFunction)
   const requestPath = req.path;
   
   // Check if API key validation is enabled
-  if (process.env.API_KEY_ENABLED === 'true') {
+  if (process.env['API_KEY_ENABLED'] === 'true') {
     // Validate API key
     if (!apiKey) {
       console.log(`❌ API key missing for ${requestPath} from ${clientIp}`);
@@ -72,8 +72,8 @@ function validateFrontendAccess(req: Request, res: Response, next: NextFunction)
       });
     }
     
-    const validFrontendKey = process.env.API_KEY_FRONTEND;
-    const validAdminKey = process.env.API_KEY_ADMIN;
+    const validFrontendKey = process.env['API_KEY_FRONTEND'];
+    const validAdminKey = process.env['API_KEY_ADMIN'];
     
     if (!validFrontendKey && !validAdminKey) {
       console.log(`⚠️ No API keys configured in environment`);
@@ -111,7 +111,7 @@ function validateFrontendAccess(req: Request, res: Response, next: NextFunction)
   }
   
   // Validate origin in production
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env['NODE_ENV'] === 'production') {
     const allowedOrigins = [
       'https://www.packmovego.com',
       'https://packmovego.com'
@@ -135,7 +135,7 @@ function validateFrontendAccess(req: Request, res: Response, next: NextFunction)
   
   // All validations passed
   console.log(`✅ Frontend validation passed for ${requestPath} from ${clientIp} (Origin: ${origin})`);
-  next();
+  return next();
 }
 
 // Middleware to set frontend cookie if missing
@@ -146,7 +146,7 @@ export function setFrontendCookieMiddleware(req: Request, res: Response, next: N
     console.log(`🍪 Setting frontend cookie for ${req.path}`);
     res.cookie('app_client', 'frontend_app', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env['NODE_ENV'] === 'production',
       sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
@@ -204,7 +204,7 @@ export function frontendRateLimitMiddleware(req: Request, res: Response, next: N
     });
   }
   
-  next();
+  return next();
 }
 
 // Complete frontend security middleware stack

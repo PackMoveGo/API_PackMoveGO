@@ -5,33 +5,36 @@ import {Request,Response,NextFunction} from 'express';
 const REMINDDERS=[7,5,2,1];
 
 // MongoDB-based reminder endpoint (no Upstash needed)
-export const sendReminders=async (req:Request,res:Response,next:NextFunction)=>{
+export const sendReminders=async (req:Request,res:Response,next:NextFunction):Promise<void>=>{
     try{
         const {subscriptionId}=req.body;
         
         if(!subscriptionId){
-            return res.status(400).json({
+            res.status(400).json({
                 success:false,
                 message:'Subscription ID required'
             });
+            return;
         }
 
         const subscription=await (Subscription.findById as any)(subscriptionId)
             .populate('user','name email');
 
         if(!subscription || subscription.status!=='active'){
-            return res.status(404).json({
+            res.status(404).json({
                 success:false,
                 message:'Subscription not found or inactive'
             });
+            return;
         }
 
         const renewalDate=dayjs(subscription.renewalDate);
         if(renewalDate.isBefore(dayjs())){
-            return res.status(400).json({
+            res.status(400).json({
                 success:false,
                 message:'Renewal date has passed'
             });
+            return;
         }
 
         // Calculate reminder dates

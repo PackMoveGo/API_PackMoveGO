@@ -79,7 +79,9 @@ class UserTracker {
    * Get client IP address
    */
   private getClientIP(req: Request): string {
-    return req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+    const forwardedFor = req.headers['x-forwarded-for']?.toString();
+    const firstIp = forwardedFor ? forwardedFor.split(',')[0]?.trim() : null;
+    return firstIp || 
            req.headers['x-real-ip']?.toString() || 
            req.headers['cf-connecting-ip']?.toString() ||
            req.headers['x-client-ip']?.toString() ||
@@ -195,10 +197,11 @@ class UserTracker {
       if (timeDiff < fiveMinutes) {
         activeSessions++;
       }
-      userTypes[session.userType]++;
+      const userType = session.userType || 'new';
+      userTypes[userType] = (userTypes[userType] || 0) + 1;
     }
     
-    const emojiStats = `🆕${userTypes.new} 👋${userTypes.returning} ⭐${userTypes.frequent} 🤖${userTypes.bot}`;
+    const emojiStats = `🆕${userTypes['new']} 👋${userTypes['returning']} ⭐${userTypes['frequent']} 🤖${userTypes['bot']}`;
     
     return {
       totalSessions: this.sessions.size,

@@ -36,12 +36,10 @@ interface LogEntry {
 
 class Logger {
   private logLevel: LogLevel;
-  private isProduction: boolean;
 
   constructor() {
-    this.logLevel = process.env.LOG_LEVEL ? 
-      parseInt(process.env.LOG_LEVEL) : LogLevel.INFO;
-    this.isProduction = process.env.NODE_ENV === 'production';
+    this.logLevel = process.env['LOG_LEVEL'] ? 
+      parseInt(process.env['LOG_LEVEL']) : LogLevel.INFO;
   }
 
   private getTimestamp(): string {
@@ -195,22 +193,22 @@ class Logger {
   }
 
   // Special formatting methods
-  public success(message: string, data?: any, context?: any): void {
+  public success(message: string, data?: any, _context?: any): void {
     console.log(chalk.green('✅'), message);
     if (data) console.log(chalk.gray('  Data:'), JSON.stringify(data, null, 2));
   }
 
-  public failure(message: string, data?: any, context?: any): void {
+  public failure(message: string, data?: any, _context?: any): void {
     console.log(chalk.red('❌'), message);
     if (data) console.log(chalk.gray('  Data:'), JSON.stringify(data, null, 2));
   }
 
-  public warning(message: string, data?: any, context?: any): void {
+  public warning(message: string, data?: any, _context?: any): void {
     console.log(chalk.yellow('⚠️'), message);
     if (data) console.log(chalk.gray('  Data:'), JSON.stringify(data, null, 2));
   }
 
-  public infoSimple(message: string, data?: any, context?: any): void {
+  public infoSimple(message: string, data?: any, _context?: any): void {
     console.log(chalk.blue('ℹ️'), message);
     if (data) console.log(chalk.gray('  Data:'), JSON.stringify(data, null, 2));
   }

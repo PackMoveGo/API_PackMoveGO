@@ -18,8 +18,8 @@ class SocketUtils {
   }
 
   private setupAuthentication() {
-    this.io.use((socket: AuthenticatedSocket, next) => {
-      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+    this.io.use(async (socket: AuthenticatedSocket, next) => {
+      const token = (socket.handshake.auth as any)['token'] || socket.handshake.headers.authorization?.replace('Bearer ', '');
 
       if (!token) {
         // Allow anonymous connections for user tracking
@@ -29,7 +29,7 @@ class SocketUtils {
       }
 
       try {
-        const decoded = JWTUtils.verifyToken(token);
+        const decoded = await JWTUtils.verifyToken(token);
         if (decoded) {
           (socket as AuthenticatedSocket).userId = decoded.userId;
           (socket as AuthenticatedSocket).userEmail = decoded.email;

@@ -12,17 +12,19 @@ export const createAdvancedRateLimiter = () => {
                      req.headers['authorization']?.replace('Bearer ', '');
       
       // Admin gets highest limits
-      if (apiKey === process.env.API_KEY_ADMIN) {
+      if (apiKey === process.env['API_KEY_ADMIN']) {
         return 1000; // 1000 requests per 15 minutes
       }
       
       // Frontend API key gets high limits
-      if (apiKey === process.env.API_KEY_FRONTEND) {
+      if (apiKey === process.env['API_KEY_FRONTEND']) {
         return 2000; // 2000 requests per 15 minutes
       }
       
       // IP whitelisted gets medium limits
-      let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+      const forwardedFor = req.headers['x-forwarded-for']?.toString();
+      const firstIp = forwardedFor ? forwardedFor.split(',')[0]?.trim() : null;
+      let clientIp = firstIp || 
                      req.headers['x-real-ip']?.toString() || 
                      req.headers['cf-connecting-ip']?.toString() ||
                      req.headers['x-client-ip']?.toString() ||
@@ -33,7 +35,7 @@ export const createAdvancedRateLimiter = () => {
       }
       
       // Check if IP is whitelisted
-      const whitelistedIPs = process.env.WHITELISTED_IPS?.split(',') || [];
+      const whitelistedIPs = process.env['WHITELISTED_IPS']?.split(',') || [];
       if (whitelistedIPs.includes(clientIp)) {
         return 1000; // 1000 requests per 15 minutes for whitelisted IPs
       }
@@ -47,13 +49,15 @@ export const createAdvancedRateLimiter = () => {
                      req.headers['authorization']?.replace('Bearer ', '');
       
       let userType = 'Guest';
-      if (apiKey === process.env.API_KEY_ADMIN) userType = 'Admin';
-      else if (apiKey === process.env.API_KEY_FRONTEND) userType = 'Frontend';
+      if (apiKey === process.env['API_KEY_ADMIN']) userType = 'Admin';
+      else if (apiKey === process.env['API_KEY_FRONTEND']) userType = 'Frontend';
       else if (apiKey) userType = 'API User';
       
       // Check if IP is whitelisted
-      const whitelistedIPs = process.env.WHITELISTED_IPS?.split(',') || [];
-      let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+      const whitelistedIPs = process.env['WHITELISTED_IPS']?.split(',') || [];
+      const forwardedFor = req.headers['x-forwarded-for']?.toString();
+      const firstIp = forwardedFor ? forwardedFor.split(',')[0]?.trim() : null;
+      let clientIp = firstIp || 
                      req.headers['x-real-ip']?.toString() || 
                      req.headers['cf-connecting-ip']?.toString() ||
                      req.headers['x-client-ip']?.toString() ||
@@ -100,8 +104,10 @@ export const createAdvancedRateLimiter = () => {
       }
       
       // Skip for whitelisted IPs
-      const whitelistedIPs = process.env.WHITELISTED_IPS?.split(',') || [];
-      let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+      const whitelistedIPs = process.env['WHITELISTED_IPS']?.split(',') || [];
+      const forwardedFor = req.headers['x-forwarded-for']?.toString();
+      const firstIp = forwardedFor ? forwardedFor.split(',')[0]?.trim() : null;
+      let clientIp = firstIp || 
                      req.headers['x-real-ip']?.toString() || 
                      req.headers['cf-connecting-ip']?.toString() ||
                      req.headers['x-client-ip']?.toString() ||
@@ -124,7 +130,9 @@ export const createAdvancedRateLimiter = () => {
       }
       
       // Use IP for non-API key requests
-      let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+      const forwardedFor = req.headers['x-forwarded-for']?.toString();
+      const firstIp = forwardedFor ? forwardedFor.split(',')[0]?.trim() : null;
+      let clientIp = firstIp || 
                      req.headers['x-real-ip']?.toString() || 
                      req.ip || 
                      req.socket.remoteAddress || 
@@ -184,8 +192,10 @@ export const burstProtection = rateLimit({
     }
     
     // Skip for whitelisted IPs
-    const whitelistedIPs = process.env.WHITELISTED_IPS?.split(',') || [];
-    let clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+    const whitelistedIPs = process.env['WHITELISTED_IPS']?.split(',') || [];
+    const forwardedFor = req.headers['x-forwarded-for']?.toString();
+    const firstIp = forwardedFor ? forwardedFor.split(',')[0]?.trim() : null;
+    let clientIp = firstIp || 
                    req.headers['x-real-ip']?.toString() || 
                    req.headers['cf-connecting-ip']?.toString() ||
                    req.headers['x-client-ip']?.toString() ||

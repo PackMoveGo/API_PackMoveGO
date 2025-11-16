@@ -12,7 +12,7 @@ router.get('/webhooks/config', (req, res) => {
     const apiKey = (Array.isArray(req.headers['x-api-key']) ? req.headers['x-api-key'][0] : req.headers['x-api-key']) || 
                    req.headers['authorization']?.replace('Bearer ', '');
     
-    const isAdmin = apiKey === process.env.API_KEY_ADMIN;
+    const isAdmin = apiKey === process.env['API_KEY_ADMIN'];
     
     if (!isAdmin) {
       return res.status(403).json({
@@ -24,14 +24,14 @@ router.get('/webhooks/config', (req, res) => {
     }
 
     const config = webhookHandler.getConfig();
-    res.json({
+    return res.json({
       success: true,
       data: config,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Webhook config error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to get webhook configuration',
       timestamp: new Date().toISOString()
@@ -45,7 +45,7 @@ router.post('/webhooks/test', (req, res) => {
     const apiKey = (Array.isArray(req.headers['x-api-key']) ? req.headers['x-api-key'][0] : req.headers['x-api-key']) || 
                    req.headers['authorization']?.replace('Bearer ', '');
     
-    const isAdmin = apiKey === process.env.API_KEY_ADMIN;
+    const isAdmin = apiKey === process.env['API_KEY_ADMIN'];
     
     if (!isAdmin) {
       return res.status(403).json({
@@ -59,11 +59,11 @@ router.post('/webhooks/test', (req, res) => {
     const testData = {
       message: 'Test webhook from PackMoveGO API',
       timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV,
+      environment: process.env['NODE_ENV'],
       source: 'PackMoveGO Backend'
     };
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Test webhook processed',
       data: testData,
@@ -71,7 +71,7 @@ router.post('/webhooks/test', (req, res) => {
     });
   } catch (error) {
     console.error('Test webhook error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Test webhook failed',
       timestamp: new Date().toISOString()

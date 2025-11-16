@@ -3,8 +3,7 @@
 // This file can be run directly by Node.js
 // It will redirect to the compiled JavaScript version
 
-const nodePath = require('path');
-const nodeFs = require('fs');
+// Removed unused imports: nodePath, nodeFs
 
 // Check if we're being run directly
 if (require.main === module) {
@@ -24,13 +23,10 @@ if (require.main === module) {
 }
 
 import express from 'express';
-import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 
@@ -39,11 +35,9 @@ import fs from 'fs';
 import mongoose from 'mongoose';
 import connectToDatabase from './database/mongodb-connection';
 import SocketUtils from './util/socket-utils';
-import JWTUtils from './util/jwt-utils';
 
 // Middleware imports
 import { securityMiddleware } from './middlewares/security';
-import { errorHandler, requestIdMiddleware } from './middlewares/error-handler';
 import { optionalAuth } from './middlewares/authMiddleware';
 import { createCORSJWT } from './middlewares/cors-jwt';
 import { performanceMiddleware } from './util/performance-monitor';
@@ -70,10 +64,14 @@ import subscriptionRouter from './routes/subscriptionRoutes';
 import workflowRouter from './routes/workflowRoutes';
 import searchRoutes from './routes/searchRoutes';
 import arcjetMiddleware from './middlewares/arcjet-middleware';
+import userAuthRoutes from './routes/userAuthRoutes';
+import availabilityRoutes from './routes/availabilityRoutes';
+import bookingAssignmentRoutes from './routes/bookingAssignmentRoutes';
+import reviewRoutes from './routes/reviewRoutes';
 
 // Utilities
 import serverMonitor from './util/monitor';
-import { log, consoleLogger } from './util/console-logger';
+import { consoleLogger } from './util/console-logger';
 import { userTracker } from './util/user-tracker';
 import { sessionLogger } from './util/session-logger';
 
@@ -83,7 +81,13 @@ import envLoader from '../config/env';
 const config = envLoader.getConfig();
 
 // Validate environment configuration
-let envConfig;
+let envConfig: {
+  NODE_ENV: string;
+  PORT: number;
+  CORS_ORIGIN: string | string[];
+  CORS_METHODS?: string;
+  CORS_ALLOWED_HEADERS?: string;
+};
 try {
   envConfig = {
     NODE_ENV: config.NODE_ENV,
@@ -111,27 +115,27 @@ app.use(sessionLogger.middleware());
 sessionLogger.startPeriodicLogging(300000);
 
 // Block all direct server access (must come from gateway)
-app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((_req: express.Request, _res: express.Response, next: express.NextFunction) => {
   // Debug: Log all headers to see what's arriving
   console.log('🔍 Server - Incoming request headers:', {
-    path: req.path,
-    host: req.headers.host,
-    'x-gateway-request': req.headers['x-gateway-request'],
-    'x-gateway-service': req.headers['x-gateway-service'],
-    'all headers': Object.keys(req.headers)
+    path: _req.path,
+    host: _req.headers.host,
+    'x-gateway-request': _req.headers['x-gateway-request'],
+    'x-gateway-service': _req.headers['x-gateway-service'],
+    'all headers': Object.keys(_req.headers)
   });
   
   // Check if request has the special gateway header
-  const hasGatewayHeader=req.headers['x-gateway-request']==='true';
+  const hasGatewayHeader=_req.headers['x-gateway-request']==='true';
   
   console.log(`🔍 Server - Gateway header check: hasGatewayHeader=${hasGatewayHeader}, NODE_ENV=${config.NODE_ENV}`);
   
   // Check if request is from Render's internal network (10.x.x.x)
-  const clientIp=req.ip || req.socket.remoteAddress || '';
+  const clientIp=_req.ip || _req.socket.remoteAddress || '';
   const isRenderInternal=clientIp.startsWith('10.') || clientIp.startsWith('::ffff:10.');
   
   // Check if this is local production mode (localhost/127.0.0.1)
-  const host=req.headers.host || '';
+  const host=_req.headers.host || '';
   const isLocalhost=host.includes('localhost') || host.includes('127.0.0.1') || clientIp==='127.0.0.1' || clientIp==='::1' || clientIp==='::ffff:127.0.0.1';
   
   // In development mode, allow requests with gateway header
@@ -157,7 +161,7 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
     
     // No gateway header and not from Render internal network or localhost - redirect
     console.log(`🚫 Server - No gateway header in production from ${clientIp}, redirecting`);
-    return res.redirect(301, 'https://packmovego.com');
+    return _res.redirect(301, 'https://packmovego.com');
   }
   
   // Check if accessing server directly on port 3001 (development) or 8080 (production)
@@ -166,32 +170,33 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
   // If accessing server directly (not through gateway), redirect to packmovego.com
   if(isDirectServerAccess && !hasGatewayHeader) {
     console.log('🚫 Server - Direct access blocked, redirecting');
-    return res.redirect(301, 'https://packmovego.com');
+    return _res.redirect(301, 'https://packmovego.com');
   }
   
   next();
 });
 
 // Enforce HTTPS for api.packmovego.com: reject HTTP with 403 and suggest redirect
-app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((_req: express.Request, _res: express.Response, next: express.NextFunction) => {
   try {
-    const originalHost = (req.headers['x-original-host'] as string) || '';
-    const host = originalHost || (req.headers.host || '');
-    const forwardedProtoHeader = (req.headers['x-forwarded-proto'] as string) || '';
+    const originalHost = (_req.headers['x-original-host'] as string) || '';
+    const host = originalHost || (_req.headers.host || '');
+    const forwardedProtoHeader = (_req.headers['x-forwarded-proto'] as string) || '';
     const forwardedProto = forwardedProtoHeader.split(',')[0]?.trim().toLowerCase();
-    const isHttps = req.secure || forwardedProto === 'https';
+    const isHttps = _req.secure || forwardedProto === 'https';
     const isApiDomain = host === 'api.packmovego.com' || host.endsWith('.api.packmovego.com');
 
     if (isApiDomain && !isHttps) {
       const redirectUrl = 'https://www.packmovego.com';
-      res.setHeader('Location', redirectUrl);
-      return res.status(403).json({
+      _res.setHeader('Location', redirectUrl);
+      _res.status(403).json({
         success: false,
         error: 'HTTPS Required',
         message: 'Use HTTPS when calling api.packmovego.com',
         redirect: redirectUrl,
         timestamp: new Date().toISOString()
       });
+      return;
     }
   } catch (_) {
     // If anything goes wrong here, do not block the request
@@ -242,7 +247,7 @@ setInterval(() => {
 }, 5 * 60 * 1000); // 5 minutes
 
 // === HEALTH CHECK ENDPOINTS ===
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.status(200).json({
     status: 'ok',
     environment: config.NODE_ENV,
@@ -252,7 +257,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   const dbStatus = true; // Database status check simplified
   res.status(200).json({
     status: 'ok',
@@ -267,7 +272,7 @@ app.get('/health', (req, res) => {
 });
 
 // Additional health endpoints
-app.get('/api/heartbeat', (req, res) => {
+app.get('/api/heartbeat', (_req, res) => {
   res.status(200).json({
     status: 'alive',
     message: 'Backend is active and responding',
@@ -278,7 +283,7 @@ app.get('/api/heartbeat', (req, res) => {
   });
 });
 
-app.get('/api/ping', (req, res) => {
+app.get('/api/ping', (_req, res) => {
   res.status(200).json({
     pong: true,
     timestamp: new Date().toISOString(),
@@ -287,7 +292,7 @@ app.get('/api/ping', (req, res) => {
 });
 
 // Connection test endpoint for frontend
-app.get('/api/connection-test', (req, res) => {
+app.get('/api/connection-test', (_req, res) => {
   res.status(200).json({
     success: true,
     message: 'Connection test successful',
@@ -303,7 +308,7 @@ app.get('/api/connection-test', (req, res) => {
 });
 
 // Auth status endpoint
-app.get('/api/auth/status', (req, res) => {
+app.get('/api/auth/status', (_req, res) => {
   res.status(200).json({
     success: true,
     message: 'Auth status endpoint',
@@ -313,7 +318,7 @@ app.get('/api/auth/status', (req, res) => {
 });
 
 // === CORS CONFIGURATION ===
-const corsOrigins = Array.isArray(envConfig.CORS_ORIGIN) ? envConfig.CORS_ORIGIN : 
+const corsOrigins: string[] = Array.isArray(envConfig.CORS_ORIGIN) ? envConfig.CORS_ORIGIN : 
                    typeof envConfig.CORS_ORIGIN === 'string' ? envConfig.CORS_ORIGIN.split(',').map((s: string) => s.trim()) : 
                    ['https://www.packmovego.com', 'https://packmovego.com'];
 
@@ -338,48 +343,58 @@ const allowedCorsOrigins = [
   ...corsOrigins
 ].filter((origin, index, arr) => arr.indexOf(origin) === index);
 
+// CORS options - currently unused, CORS is handled by corsJWT.middleware
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// @ts-ignore - intentionally unused, kept for future reference
 const corsOptions = {
   origin: function (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
-    // Allow requests with no origin (like curl, Postman)
-    if (!origin || origin === 'null') {
+    // In development, allow no-origin requests (Postman, curl)
+    if(config.NODE_ENV==='development' && (!origin || origin==='null')){
+      return callback(null, true);
+    }
+
+    // Production: require origin
+    if(!origin){
+      return callback(new Error('Origin header required'));
+    }
+    
+    // Allow localhost in development only
+    if(config.NODE_ENV==='development'){
+      if(origin.includes('localhost')||origin.includes('127.0.0.1')){
+        return callback(null, true);
+      }
+    }
+    
+    // Check explicit whitelist
+    if(allowedCorsOrigins.includes(origin)){
       return callback(null, true);
     }
     
-    // Allow localhost for development
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    // Allow packmovego.com and subdomains
+    if(origin.endsWith('.packmovego.com')||origin==='https://packmovego.com'||origin==='https://www.packmovego.com'){
       return callback(null, true);
     }
     
-    // Allow IP addresses for testing
-    if (origin.match(/^https?:\/\/\d+\.\d+\.\d+\.\d+/)) {
-      return callback(null, true);
-    }
-    
-    // Allow whitelisted origins
-    if (allowedCorsOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    // Allow packmovego.com subdomains
-    if (origin.includes('packmovego.com')) {
-      return callback(null, true);
-    }
-    
-    // Allow Vercel domains
-    if (origin.includes('vercel.server')) {
-      return callback(null, true);
-    }
-    
-    // Allow all origins
-    return callback(null, true);
-    
-    callback(new Error('Not allowed by CORS'));
+    // Production: Deny all other origins
+    console.warn(`🚫 CORS blocked origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
   },
-  methods: envConfig.CORS_METHODS || ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: envConfig.CORS_ALLOWED_HEADERS || ['Content-Type', 'Authorization', 'x-api-key'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH','HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'x-api-key',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'X-CSRF-Token',
+    'X-Request-ID'
+  ],
+  exposedHeaders: ['X-Request-ID','X-CSRF-Token'],
   credentials: true,
-  optionsSuccessStatus: 200,
-  preflightContinue: false
+  optionsSuccessStatus: 204,
+  preflightContinue: false,
+  maxAge: 86400 // Cache preflight for 24 hours
 };
 
 // === GRACEFUL SHUTDOWN ===
@@ -496,30 +511,30 @@ app.use(burstProtection);
 app.use(corsJWT.middleware);
 
 // Request logging middleware with user tracking
-app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((_req: express.Request, _res: express.Response, next: express.NextFunction) => {
   const startTime = Date.now();
   const timestamp = new Date().toISOString();
-  const method = req.method;
-  const path = req.path;
-  const userAgent = req.get('User-Agent') || 'Unknown';
-  const origin = req.get('Origin') || 'Unknown';
-  const ip = req.ip || req.socket.remoteAddress || 'Unknown';
-  const requestId = req.headers['x-request-id'] as string || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const method = _req.method;
+  const path = _req.path;
+  const userAgent = _req.get('User-Agent') || 'Unknown';
+  const origin = _req.get('Origin') || 'Unknown';
+  const ip = _req.ip || _req.socket.remoteAddress || 'Unknown';
+  const requestId = _req.headers['x-request-id'] as string || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
   // Get or create user session
-  const userSession = userTracker.getUserSession(req);
+  const userSession = userTracker.getUserSession(_req);
   const userDisplay = userTracker.getUserDisplay(userSession);
   
   // Log ALL requests to Render console with user tracking
   console.log(`[${timestamp}] ${method} ${path} - ${userDisplay} - IP: ${ip} - Origin: ${origin} - User-Agent: ${userAgent} - RequestID: ${requestId}`);
   
   // Set request ID for tracking
-  (req as any).requestId = requestId;
-  res.setHeader('X-Request-ID', requestId);
+  (_req as any).requestId = requestId;
+  _res.setHeader('X-Request-ID', requestId);
   
-  res.on('finish', () => {
+  _res.on('finish', () => {
     const responseTime = Date.now() - startTime;
-    const statusCode = res.statusCode;
+    const statusCode = _res.statusCode;
     const isError = statusCode >= 400;
     
     // Log ALL responses to Render console
@@ -541,10 +556,10 @@ app.use(cookieParser(config.API_KEY_FRONTEND, {
   decode: decodeURIComponent
 }));
 
-app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const clientCookie = req.cookies.server_client;
+app.use((_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+  const clientCookie = _req.cookies['server_client'];
   if (!clientCookie || clientCookie !== 'frontend_server') {
-    res.cookie('server_client', 'frontend_server', {
+    _res.cookie('server_client', 'frontend_server', {
       httpOnly: true,
       secure: config.isProduction,
       sameSite: 'strict'
@@ -557,11 +572,11 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request timeout middleware
-app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((_req: express.Request, _res: express.Response, next: express.NextFunction) => {
   const timeout = setTimeout(() => {
-    if (!res.headersSent) {
-      console.warn(`⚠️ Request timeout for ${req.method} ${req.path}`);
-      res.status(408).json({
+    if (!_res.headersSent) {
+      console.warn(`⚠️ Request timeout for ${_req.method} ${_req.path}`);
+      _res.status(408).json({
         success: false,
         message: 'Request timeout',
         timestamp: new Date().toISOString()
@@ -569,7 +584,7 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
     }
   }, 30000);
 
-  res.on('finish', () => {
+  _res.on('finish', () => {
     clearTimeout(timeout);
   });
 
@@ -587,43 +602,44 @@ app.use('/security', securityRoutes);
 
 // SSD_Alt merged routes (with Arcjet protection)
 app.use('/v0/auth', arcjetMiddleware, authRouterAlt);
+app.use('/auth', arcjetMiddleware, authRouterAlt); // Alias for /auth/* to work without /v0 prefix
 app.use('/v0/subscriptions', arcjetMiddleware, subscriptionRouter);
 app.use('/v0/workflows', arcjetMiddleware, workflowRouter);
 app.use('/v0/search', searchRoutes);
 
 // Handle /api/v0/* requests and redirect to /v0/*
-app.use('/api/v0', (req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use('/api/v0', (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
   // Remove /api prefix and forward to v0 routes
-  const newUrl = req.url.replace('/api/v0', '/v0');
-  console.log(`🔄 API redirect: ${req.url} -> ${newUrl}`);
-  req.url = newUrl;
+  const newUrl = _req.url.replace('/api/v0', '/v0');
+  console.log(`🔄 API redirect: ${_req.url} -> ${newUrl}`);
+  _req.url = newUrl;
   next();
 });
 
 // /v0/* routes are now handled by v0-routes.ts
 
 // Specific handler for common frontend requests
-app.get('/api/v0/nav.json', (req: express.Request, res: express.Response) => {
-  console.log(`📡 Frontend nav request: ${req.method} ${req.path} from ${req.ip}`);
+app.get('/api/v0/nav.json', (_req: express.Request, _res: express.Response) => {
+  console.log(`📡 Frontend nav request: ${_req.method} ${_req.path} from ${_req.ip}`);
   // Redirect to the correct endpoint
-  return res.redirect('/v0/nav');
+  return _res.redirect('/v0/nav');
 });
 
 // Handle auth status requests (both /api/auth/status and /auth/status)
-const authStatusHandler = (req: express.Request, res: express.Response) => {
-  console.log(`📡 Auth status request: ${req.method} ${req.path} from ${req.ip}`);
+const authStatusHandler = (_req: express.Request, _res: express.Response) => {
+  console.log(`📡 Auth status request: ${_req.method} ${_req.path} from ${_req.ip}`);
   
   // Set CORS headers for this specific endpoint
-  const origin = req.headers.origin;
+  const origin = _req.headers.origin;
   if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
+    _res.setHeader('Access-Control-Allow-Origin', origin);
   }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  _res.setHeader('Access-Control-Allow-Credentials', 'true');
+  _res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  _res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
   
   // Return auth status
-  return res.json({
+  return _res.json({
     success: true,
     authenticated: false,
     message: 'Auth status endpoint',
@@ -635,37 +651,42 @@ app.get('/api/auth/status', authStatusHandler);
 app.get('/auth/status', authStatusHandler);
 
 // Handle OPTIONS for auth status (both paths)
-const authStatusOptionsHandler = (req: express.Request, res: express.Response) => {
-  const origin = req.headers.origin;
+const authStatusOptionsHandler = (_req: express.Request, _res: express.Response) => {
+  const origin = _req.headers.origin;
   if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
+    _res.setHeader('Access-Control-Allow-Origin', origin);
   }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
-  res.status(200).end();
+  _res.setHeader('Access-Control-Allow-Credentials', 'true');
+  _res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  _res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  _res.status(200).end();
 };
 
 app.options('/api/auth/status', authStatusOptionsHandler);
 app.options('/auth/status', authStatusOptionsHandler);
 
 // Specific handler for health endpoint
-app.get('/api/v0/health', (req: express.Request, res: express.Response) => {
-  console.log(`📡 Frontend health request: ${req.method} ${req.path} from ${req.ip}`);
+app.get('/api/v0/health', (_req: express.Request, _res: express.Response) => {
+  console.log(`📡 Frontend health request: ${_req.method} ${_req.path} from ${_req.ip}`);
   // Redirect to the correct endpoint
-  return res.redirect('/v0/health');
+  return _res.redirect('/v0/health');
 });
 
-// V0 content routes
+// Contact, referral, and quote routes (MongoDB-based)
+// These must be mounted BEFORE v0Routes catch-all to ensure proper matching
+app.use('/v0/contact', contactRoutes);
+app.use('/v0/referral', referralRoutes);
+app.use('/v0/quotes', quoteRoutes);
+app.use('/api/auth', userAuthRoutes); // User authentication for movers/shift leads
+app.use('/api/availability', availabilityRoutes); // Availability management
+app.use('/api/bookings', bookingAssignmentRoutes); // Booking assignments
+app.use('/api/reviews', reviewRoutes); // Service reviews
+
+// V0 content routes (catch-all must come after specific routes)
 app.use('/v0', v0Routes);
 
 // Geolocation proxy route
 app.use('/v0', geolocationRoutes);
-
-// Contact, referral, and quote routes (MongoDB-based)
-app.use('/v0/contact', contactRoutes);
-app.use('/v0/referral', referralRoutes);
-app.use('/v0/quotes', quoteRoutes);
 
 // Public API routes - alias for /v0/* endpoints
 // This allows /public/services to work by proxying to /v0/services
@@ -687,7 +708,7 @@ app.use('/services', servicesRoutes);
 app.use('/analytics', analyticsRoutes);
 
 // === ROOT ENDPOINTS ===
-app.get('/', (req: express.Request, res: express.Response) => {
+app.get('/', (_req: express.Request, res: express.Response) => {
   const dbStatus = true;
   return res.status(200).json({
     message: 'Welcome to PackMoveGO REST API',
@@ -749,7 +770,7 @@ app.get('/api', (req: express.Request, res: express.Response) => {
 });
 
 // User tracking stats endpoint
-app.get('/api/stats/users', (req: express.Request, res: express.Response) => {
+app.get('/api/stats/users', (_req: express.Request, res: express.Response) => {
   // User tracking is now handled by Socket.IO
   res.json({
     success: true,
@@ -759,7 +780,7 @@ app.get('/api/stats/users', (req: express.Request, res: express.Response) => {
 });
 
 // Clear visitors endpoint (POST and GET)
-app.post('/api/clear/visitors', (req: express.Request, res: express.Response) => {
+app.post('/api/clear/visitors', (_req: express.Request, res: express.Response) => {
   try {
     // Clear the visitor data
     const dataPath = path.join(__dirname, '../../data/user-sessions.json');
@@ -798,7 +819,7 @@ app.post('/api/clear/visitors', (req: express.Request, res: express.Response) =>
   }
 });
 
-app.get('/api/clear/visitors', (req: express.Request, res: express.Response) => {
+app.get('/api/clear/visitors', (_req: express.Request, res: express.Response) => {
   try {
     // Clear the visitor data
     const dataPath = path.join(__dirname, '../../data/user-sessions.json');
@@ -838,7 +859,7 @@ app.get('/api/clear/visitors', (req: express.Request, res: express.Response) => 
 });
 
 // MongoDB connection test endpoint
-app.get('/api/test/mongodb', (req: express.Request, res: express.Response) => {
+app.get('/api/test/mongodb', (_req: express.Request, res: express.Response) => {
       const connectionStatus = true;
   const mongooseState = mongoose.connection.readyState;
   const stateNames = ['disconnected', 'connected', 'connecting', 'disconnecting'];
@@ -854,45 +875,45 @@ app.get('/api/test/mongodb', (req: express.Request, res: express.Response) => {
 });
 
 // Handle malformed URLs that include full server URL
-app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((_req: express.Request, _res: express.Response, next: express.NextFunction) => {
   // Check if URL contains full server URL and clean it
-  if (req.url.includes('http://localhost:3000') || req.url.includes('https://localhost:3000')) {
-    const cleanUrl = req.url.replace(/https?:\/\/localhost:3000/, '');
+  if (_req.url.includes('http://localhost:3000') || _req.url.includes('https://localhost:3000')) {
+    const cleanUrl = _req.url.replace(/https?:\/\/localhost:3000/, '');
     // Fix double slashes
     const finalUrl = cleanUrl.replace(/\/\//g, '/');
-    console.log(`🔧 Cleaning malformed URL: ${req.url} -> ${finalUrl}`);
-    req.url = finalUrl;
+    console.log(`🔧 Cleaning malformed URL: ${_req.url} -> ${finalUrl}`);
+    _req.url = finalUrl;
   }
   next();
 });
 
 // Test endpoint for logging verification
-app.get('/test-logging', (req: express.Request, res: express.Response) => {
+app.get('/test-logging', (_req: express.Request, res: express.Response) => {
   console.log('🧪 Test logging endpoint called!');
   res.json({
     success: true,
     message: 'Logging test successful',
     timestamp: new Date().toISOString(),
-    requestId: (req as any).requestId,
-    ip: req.ip,
-    userAgent: req.get('User-Agent')
+    requestId: (_req as any).requestId,
+    ip: _req.ip,
+    userAgent: _req.get('User-Agent')
   });
 });
 
 // === ERROR HANDLERS ===
-app.use('*', (req: express.Request, res: express.Response) => {
+app.use('*', (_req: express.Request, res: express.Response) => {
   // Only log 404s for actual API requests, not static files or common paths
-  const shouldLog = !req.path.includes('.') && !req.path.includes('favicon') && req.path !== '/';
+  const shouldLog = !_req.path.includes('.') && !_req.path.includes('favicon') && _req.path !== '/';
   
   if (shouldLog) {
-    console.log(`❌ 404: ${req.method} ${req.path} from ${req.ip}`);
+    console.log(`❌ 404: ${_req.method} ${_req.path} from ${_req.ip}`);
   }
   
   res.status(404).json({
     success: false,
     message: 'API endpoint not found',
-    path: req.path,
-    method: req.method,
+    path: _req.path,
+    method: _req.method,
     timestamp: new Date().toISOString(),
     availableEndpoints: [
       'health',
@@ -913,7 +934,7 @@ app.use('*', (req: express.Request, res: express.Response) => {
   });
 });
 
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   consoleLogger.error('server', 'Server Error', err.stack);
   
   let statusCode = 500;
@@ -968,12 +989,13 @@ const SSL_CERT = config.SSL_CERT_PATH;
 
 // SSH Server setup
 const SSH_ENABLED = config.SSH_ENABLED;
-let sshServer: any = null;
+// SSH server variable reserved for future use
+// let _sshServer: any = null;
 
 if (SSH_ENABLED) {
   try {
-    const { sshServer: ssh } = require('../config/certs/sshServer');
-    sshServer = ssh;
+    const { sshServer: _ssh } = require('../config/certs/sshServer');
+    // Reserved for future use
     consoleLogger.info('system', '🔐 SSH server enabled');
   } catch (error) {
     consoleLogger.warning('SSH server not available');
@@ -1025,7 +1047,7 @@ if (USE_SSL && fs.existsSync(SSL_KEY) && fs.existsSync(SSL_CERT)) {
     consoleLogger.serverReady();
   });
 } else {
-  httpServer = server.listen(port, '0.0.0.0', () => {
+  httpServer = server.listen(Number(port), '0.0.0.0', () => {
     consoleLogger.serverStart(port, config.NODE_ENV);
     
     if (isPrivateService) {

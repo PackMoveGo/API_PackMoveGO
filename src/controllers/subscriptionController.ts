@@ -1,9 +1,11 @@
 import {Request,Response,NextFunction} from 'express';
 import Subscription from '../models/subscriptionModel';
 
-const HOST=process.env.HOST || 'http://localhost:3000';
+// @ts-ignore - Reserved for future feature
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _HOST=process.env['HOST'] || 'http://localhost:3000';
 
-export const createSubscription=async (req:Request,res:Response,next:NextFunction)=>{
+export const createSubscription=async (req:Request,res:Response,next:NextFunction):Promise<void>=>{
     try{
         const subscription=await (Subscription.create as any)({
             ...req.body,
@@ -23,7 +25,7 @@ export const createSubscription=async (req:Request,res:Response,next:NextFunctio
     }
 }
 
-export const getSubscriptions=async (req:Request,res:Response,next:NextFunction)=>{
+export const getSubscriptions=async (req:Request,res:Response,next:NextFunction):Promise<void>=>{
     try{
         if((req as any).user.id!==req.params.id){
             const error=new Error('You are not the owner of this account') as any;

@@ -75,24 +75,22 @@ export class CORSJWTMiddleware {
   /**
    * Main CORS JWT middleware
    */
-  public middleware = (req: Request, res: Response, next: NextFunction) => {
-    const origin = req.headers.origin;
+  public middleware = (req: Request, res: Response, _next: NextFunction) => {
     const method = req.method;
-    const path = req.path;
 
     // Handle preflight requests
     if (method === 'OPTIONS') {
-      return this.handlePreflight(req, res, next);
+      return this.handlePreflight(req, res, _next);
     }
 
     // Handle actual requests
-    return this.handleRequest(req, res, next);
+    return this.handleRequest(req, res, _next);
   };
 
   /**
    * Handle CORS preflight requests with JWT validation
    */
-  private handlePreflight(req: Request, res: Response, next: NextFunction) {
+  private handlePreflight(req: Request, res: Response, _next: NextFunction) {
     const origin = req.headers.origin;
     const path = req.path;
 
@@ -146,7 +144,7 @@ export class CORSJWTMiddleware {
   /**
    * Handle actual requests with JWT validation
    */
-  private handleRequest(req: Request, res: Response, next: NextFunction) {
+  private handleRequest(req: Request, res: Response, _next: NextFunction) {
     const origin = req.headers.origin;
     const path = req.path;
 
@@ -160,7 +158,7 @@ export class CORSJWTMiddleware {
     // Allow requests with no origin (like direct API calls, server-to-server)
     if (!origin) {
       this.setCORSHeaders(req, res, '*');
-      return next();
+      return _next();
     }
 
     // Check if origin is allowed
@@ -179,13 +177,13 @@ export class CORSJWTMiddleware {
     // For public endpoints, allow without JWT
     if (this.isPublicEndpoint(path)) {
       this.setCORSHeaders(req, res, origin);
-      return next();
+      return _next();
     }
 
     // For optional auth endpoints, allow with or without JWT
     if (this.isOptionalAuthEndpoint(path)) {
       this.setCORSHeaders(req, res, origin);
-      return next();
+      return _next();
     }
 
     // For protected endpoints, validate JWT
@@ -207,7 +205,7 @@ export class CORSJWTMiddleware {
     // Add JWT payload to request for downstream middleware
     (req as any).jwtPayload = jwtResult.payload;
     
-    return next();
+    return _next();
   }
 
   /**
@@ -243,7 +241,7 @@ export class CORSJWTMiddleware {
   /**
    * Set CORS headers
    */
-  private setCORSHeaders(req: Request, res: Response, origin: string) {
+  private setCORSHeaders(_req: Request, res: Response, origin: string) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');

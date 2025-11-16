@@ -55,7 +55,7 @@ export const createValidationMiddleware = (config: ValidationConfig) => {
           timestamp: new Date().toISOString()
         });
       }
-      next();
+      return next();
     }
   ];
 };

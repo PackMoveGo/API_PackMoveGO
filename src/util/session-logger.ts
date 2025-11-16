@@ -126,6 +126,7 @@ class SessionLogger {
     const now = Date.now();
     for (const [sessionId, logs] of this.sessions.entries()) {
       const lastLog = logs[logs.length - 1];
+      if (!lastLog) continue;
       const lastActivity = new Date(lastLog.timestamp).getTime();
       if (now - lastActivity > maxAge) {
         this.sessions.delete(sessionId);

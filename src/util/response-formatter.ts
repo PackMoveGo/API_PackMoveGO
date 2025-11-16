@@ -60,7 +60,7 @@ export const sendSuccess = <T>(
       requestId: options?.requestId,
       meta: {
       version: '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
+      environment: process.env['NODE_ENV'] || 'development',
       processingTime: options?.processingTime
       }
     };
@@ -113,7 +113,7 @@ export const sendError = (
   };
 
   // Add debug information in development
-  if (process.env.NODE_ENV === 'development' && options?.debug) {
+  if (process.env['NODE_ENV'] === 'development' && options?.debug) {
     response.debug = options.debug;
   }
 
@@ -155,7 +155,7 @@ export const sendHealthCheck = (res: Response, options?: { requestId?: string })
   
   const healthData = {
     status: 'ok',
-    environment: process.env.NODE_ENV || 'development',
+    environment: process.env['NODE_ENV'] || 'development',
     uptime: Math.floor(process.uptime()),
     database: {
       connected: dbStatus,
@@ -163,9 +163,9 @@ export const sendHealthCheck = (res: Response, options?: { requestId?: string })
     },
     services: {
       'MongoDB': dbStatus ? '✅ Connected' : '❌ Not connected',
-      'JWT': process.env.JWT_SECRET ? '✅ Configured' : '❌ Not configured',
-      'Stripe': process.env.STRIPE_SECRET_KEY ? '✅ Configured' : '❌ Not configured',
-      'Email': process.env.EMAIL_USER ? '✅ Configured' : '❌ Not configured'
+      'JWT': process.env['JWT_SECRET'] ? '✅ Configured' : '❌ Not configured',
+      'Stripe': process.env['STRIPE_SECRET_KEY'] ? '✅ Configured' : '❌ Not configured',
+      'Email': process.env['EMAIL_USER'] ? '✅ Configured' : '❌ Not configured'
     }
   };
 

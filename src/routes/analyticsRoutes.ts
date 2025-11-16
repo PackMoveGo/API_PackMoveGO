@@ -1,8 +1,8 @@
 import express from 'express';
 import { performanceMonitor } from '../util/performance-monitor';
-import { requireAuth } from '../middlewares/authMiddleware';
+// import { requireAuth } from '../middlewares/authMiddleware'; // Unused import
 import { userTracker } from '../util/user-tracker';
-import { Router, Request, Response } from 'express';
+import { Request, Response } from 'express';
 
 const router = express.Router();
 
@@ -13,7 +13,7 @@ router.get('/analytics/performance', (req, res) => {
     const apiKey = (Array.isArray(req.headers['x-api-key']) ? req.headers['x-api-key'][0] : req.headers['x-api-key']) || 
                    req.headers['authorization']?.replace('Bearer ', '');
     
-    const isAdmin = apiKey === process.env.API_KEY_ADMIN;
+    const isAdmin = apiKey === process.env['API_KEY_ADMIN'];
     
     if (!isAdmin) {
       return res.status(403).json({
@@ -27,7 +27,7 @@ router.get('/analytics/performance', (req, res) => {
     const summary = performanceMonitor.getSummary();
     const realTime = performanceMonitor.getRealTimeStats();
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         ...summary,
@@ -37,7 +37,7 @@ router.get('/analytics/performance', (req, res) => {
     });
   } catch (error) {
     console.error('Analytics error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Internal server error',
       message: 'Failed to retrieve analytics data',
@@ -47,11 +47,11 @@ router.get('/analytics/performance', (req, res) => {
 });
 
 // Public health and basic stats endpoint
-router.get('/analytics/health', (req, res) => {
+router.get('/analytics/health', (_req, res) => {
   try {
     const realTime = performanceMonitor.getRealTimeStats();
     
-    res.json({
+    return res.json({
       success: true,
       status: 'healthy',
       data: {
@@ -70,7 +70,7 @@ router.get('/analytics/health', (req, res) => {
     });
   } catch (error) {
     console.error('Health check error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       status: 'unhealthy',
       error: 'Health check failed',
@@ -85,7 +85,7 @@ router.get('/analytics/export', (req, res) => {
     const apiKey = (Array.isArray(req.headers['x-api-key']) ? req.headers['x-api-key'][0] : req.headers['x-api-key']) || 
                    req.headers['authorization']?.replace('Bearer ', '');
     
-    const isAdmin = apiKey === process.env.API_KEY_ADMIN;
+    const isAdmin = apiKey === process.env['API_KEY_ADMIN'];
     
     if (!isAdmin) {
       return res.status(403).json({
@@ -99,10 +99,10 @@ router.get('/analytics/export', (req, res) => {
     
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="packmovego-metrics-${Date.now()}.json"`);
-    res.json(exportData);
+    return res.json(exportData);
   } catch (error) {
     console.error('Export error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Export failed',
       timestamp: new Date().toISOString()
@@ -111,18 +111,18 @@ router.get('/analytics/export', (req, res) => {
 });
 
 // Real-time monitoring endpoint
-router.get('/analytics/realtime', (req, res) => {
+router.get('/analytics/realtime', (_req, res) => {
   try {
     const realTime = performanceMonitor.getRealTimeStats();
     
-    res.json({
+    return res.json({
       success: true,
       data: realTime,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Real-time analytics error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Real-time data unavailable',
       timestamp: new Date().toISOString()
@@ -131,11 +131,11 @@ router.get('/analytics/realtime', (req, res) => {
 });
 
 // Get user tracking statistics
-router.get('/users/stats', (req: Request, res: Response) => {
+router.get('/users/stats', (_req: Request, res: Response) => {
   try {
     const stats = userTracker.getStats();
     
-    res.json({
+    return res.json({
       success: true,
       data: {
         totalSessions: stats.totalSessions,
@@ -145,7 +145,7 @@ router.get('/users/stats', (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error getting user stats:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Error retrieving user statistics'
     });
@@ -153,17 +153,17 @@ router.get('/users/stats', (req: Request, res: Response) => {
 });
 
 // Get detailed user sessions (for debugging)
-router.get('/users/sessions', (req: Request, res: Response) => {
+router.get('/users/sessions', (_req: Request, res: Response) => {
   try {
     // This would need to be exposed from userTracker
-    res.json({
+    return res.json({
       success: true,
       message: 'User sessions endpoint - implement detailed view',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Error getting user sessions:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Error retrieving user sessions'
     });

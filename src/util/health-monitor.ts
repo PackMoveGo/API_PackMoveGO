@@ -252,7 +252,7 @@ class HealthMonitor {
   }
 
   // Health check endpoint handler
-  healthEndpoint = (req: Request, res: Response) => {
+  healthEndpoint = (_req: Request, res: Response) => {
     const health = this.getHealthStatus();
     const statusCode = health.overall === 'healthy' ? 200 : 
                       health.overall === 'degraded' ? 200 : 503;
@@ -260,13 +260,13 @@ class HealthMonitor {
     res.status(statusCode).json({
       ...health,
       service: 'PackMoveGO API',
-      version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV || 'development'
+      version: process.env['npm_package_version'] || '1.0.0',
+      environment: process.env['NODE_ENV'] || 'development'
     });
   };
 
   // Simple health check (fast response)
-  simpleHealthEndpoint = (req: Request, res: Response) => {
+  simpleHealthEndpoint = (_req: Request, res: Response) => {
     const uptime = process.uptime();
     const memUsage = process.memoryUsage();
     const healthyChecks = Array.from(this.checks.values()).filter(c => c.status === 'healthy').length;

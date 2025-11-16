@@ -21,9 +21,8 @@ services:
       - key: SERVICE_TYPE
         value: private
       # PORT is automatically assigned by Render - no need to set it explicitly
+      # Database Configuration - MUST be set in Render Dashboard
       - key: MONGODB_URI
-        value: "SET_IN_RENDER_DASHBOARD"
-      - key: DATABASE_URL
         value: "SET_IN_RENDER_DASHBOARD"
       - key: CORS_ORIGIN
         value: https://www.packmovego.com,https://packmovego.com

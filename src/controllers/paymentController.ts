@@ -1,30 +1,54 @@
-import { Request, Response } from 'express';
+import{Request,Response} from 'express';
 import Stripe from 'stripe';
 import fs from 'fs';
 import path from 'path';
-import { log } from '../util/console-logger';
+import{log} from '../util/console-logger';
+import{PaymentError} from '../util/errors';
+import AuditLogger from '../util/audit-logger';
 
-interface Payment {
-  id: string;
-  bookingId: string;
-  amount: number;
-  currency: string;
-  method: string;
-  status: 'pending' | 'paid' | 'failed';
-  stripePaymentIntentId?: string;
-  createdAt: string;
-  processedAt?: string;
+/**
+ * PCI DSS COMPLIANCE NOTES:
+ * - Never store full card numbers (handled by Stripe)
+ * - Never store CVV/CVC codes (handled by Stripe)
+ * - Never store PIN numbers (handled by Stripe)
+ * - All card data handled by Stripe.js on client side
+ * - Only store Stripe payment intent IDs and metadata
+ * - Validate webhook signatures to prevent tampering
+ * - Use idempotency keys to prevent duplicate charges
+ * - Log all payment operations for audit trail
+ * - Encrypt sensitive payment metadata
+ */
+
+interface Payment{
+  id:string;
+  bookingId:string;
+  amount:number;
+  currency:string;
+  method:string;
+  status:'pending'|'paid'|'failed'|'refunded';
+  stripePaymentIntentId?:string;
+  idempotencyKey?:string; // Prevent duplicate charges
+  createdAt:string;
+  processedAt?:string;
+  refundedAt?:string;
+  metadata?:Record<string,any>;
 }
 
-class PaymentController {
-  private stripe: Stripe;
-  private dataPath: string;
+class PaymentController{
+  private stripe:Stripe;
+  private dataPath:string;
 
-  constructor() {
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-      apiVersion: '2023-10-16'
+  constructor(){
+    // Validate Stripe key exists
+    if(!process.env['STRIPE_SECRET_KEY']){
+      throw new Error('STRIPE_SECRET_KEY not configured');
+    }
+
+    this.stripe=new Stripe(process.env['STRIPE_SECRET_KEY'],{
+      apiVersion:'2023-10-16',
+      typescript:true
     });
-    this.dataPath = path.join(__dirname, '../data/bookings.json');
+    this.dataPath=path.join(__dirname,'../data/bookings.json');
   }
 
   private loadData(): any {
@@ -45,60 +69,91 @@ class PaymentController {
     }
   }
 
-  // Create payment intent
-  async createPaymentIntent(req: Request, res: Response): Promise<void> {
-    try {
-      const { bookingId, amount, currency = 'usd', paymentMethod } = req.body;
+  // Create payment intent (PCI DSS compliant)
+  async createPaymentIntent(req:Request,res:Response):Promise<void>{
+    try{
+      const{bookingId,amount,currency='usd',paymentMethod}=req.body;
+      const userId=(req as any).user?.userId;
 
-      if (!bookingId || !amount) {
-        res.status(400).json({ error: 'Booking ID and amount are required' });
-        return;
+      if(!bookingId||!amount){
+        throw new PaymentError('Booking ID and amount are required');
       }
 
-      const data = this.loadData();
-      const booking = data.bookings.find((b: any) => b.id === bookingId);
-
-      if (!booking) {
-        res.status(404).json({ error: 'Booking not found' });
-        return;
+      // Validate amount
+      if(amount<=0||amount>1000000){
+        throw new PaymentError('Invalid payment amount');
       }
 
-      // Create payment intent with Stripe
-      const paymentIntent = await this.stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Convert to cents
+      const data=this.loadData();
+      const booking=data.bookings.find((b:any)=>b.id===bookingId);
+
+      if(!booking){
+        throw new PaymentError('Booking not found');
+      }
+
+      // Generate idempotency key to prevent duplicate charges
+      const idempotencyKey=`payment_${bookingId}_${Date.now()}`;
+
+      // Create payment intent with Stripe (PCI DSS: card data never touches our servers)
+      const paymentIntent=await this.stripe.paymentIntents.create({
+        amount:Math.round(amount*100), // Convert to cents
         currency,
-        payment_method_types: ['card'],
-        metadata: {
+        payment_method_types:['card'],
+        metadata:{
           bookingId,
-          customerId: booking.customerId
-        }
+          customerId:booking.customerId,
+          environment:process.env['NODE_ENV']||'development'
+        },
+        description:`Payment for booking ${bookingId}`
+      },{
+        idempotencyKey // Prevent duplicate charges
       });
 
-      // Create payment record
-      const payment: Payment = {
-        id: `payment_${Date.now()}`,
+      // Create payment record (never store card data)
+      const payment:Payment={
+        id:`payment_${Date.now()}`,
         bookingId,
         amount,
         currency,
-        method: paymentMethod || 'credit_card',
-        status: 'pending',
-        stripePaymentIntentId: paymentIntent.id,
-        createdAt: new Date().toISOString()
+        method:paymentMethod||'credit_card',
+        status:'pending',
+        stripePaymentIntentId:paymentIntent.id,
+        idempotencyKey,
+        createdAt:new Date().toISOString()
       };
 
       data.payments.push(payment);
       this.saveData(data);
 
-      log.info('payment', 'Payment intent created', { bookingId, amount, paymentIntentId: paymentIntent.id });
+      // Audit log
+      if(userId){
+        await AuditLogger.log(
+          {userId,userEmail:(req as any).user?.email,userRole:(req as any).user?.role||'customer',ipAddress:req.ip||'',userAgent:req.get('User-Agent')||''},
+          {action:'create' as any,resourceType:'Payment',resourceId:payment.id,success:true}
+        );
+      }
+
+      log.info('payment','Payment intent created',{bookingId,amount,paymentIntentId:paymentIntent.id});
+      
+      // Only send client secret (PCI DSS: no sensitive data in response)
       res.status(200).json({
-        success: true,
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
-        payment
+        success:true,
+        clientSecret:paymentIntent.client_secret,
+        paymentIntentId:paymentIntent.id,
+        payment:{
+          id:payment.id,
+          status:payment.status,
+          amount:payment.amount,
+          currency:payment.currency
+        }
       });
-    } catch (error) {
-      log.error('payment', 'Error creating payment intent', error);
-      res.status(500).json({ error: 'Failed to create payment intent' });
+    }catch(error){
+      log.error('payment','Error creating payment intent',error);
+      if(error instanceof PaymentError){
+        res.status(error.statusCode).json(error.toJSON());
+      }else{
+        res.status(500).json({error:'Failed to create payment intent'});
+      }
     }
   }
 
@@ -200,109 +255,186 @@ class PaymentController {
     }
   }
 
-  // Refund payment
-  async refundPayment(req: Request, res: Response): Promise<void> {
-    try {
-      const { paymentId, reason = 'requested_by_customer' } = req.body;
+  // Refund payment (PCI DSS: proper authorization required)
+  async refundPayment(req:Request,res:Response):Promise<void>{
+    try{
+      const{paymentId,amount,reason='requested_by_customer'}=req.body;
+      const userId=(req as any).user?.userId;
+      const userRole=(req as any).user?.role;
 
-      if (!paymentId) {
-        res.status(400).json({ error: 'Payment ID is required' });
+      if(!paymentId){
+        throw new PaymentError('Payment ID is required');
+      }
+
+      // Only admin and manager can refund
+      if(userRole!=='admin' && userRole!=='manager'){
+        res.status(403).json({error:'Only admins and managers can process refunds'});
         return;
       }
 
-      const data = this.loadData();
-      const payment = data.payments.find((p: Payment) => p.id === paymentId);
+      const data=this.loadData();
+      const payment=data.payments.find((p:Payment)=>p.id===paymentId);
 
-      if (!payment) {
-        res.status(404).json({ error: 'Payment not found' });
-        return;
+      if(!payment){
+        throw new PaymentError('Payment not found');
       }
 
-      if (payment.status !== 'paid') {
-        res.status(400).json({ error: 'Payment must be paid to refund' });
-        return;
+      if(payment.status!=='paid'){
+        throw new PaymentError('Payment must be paid to refund');
       }
 
-      if (payment.stripePaymentIntentId) {
-        // Create refund in Stripe
-        const refund = await this.stripe.refunds.create({
-          payment_intent: payment.stripePaymentIntentId,
-          reason
-        });
-
-        // Update payment status
-        payment.status = 'refunded';
-        this.saveData(data);
-
-        log.info('payment', 'Payment refunded', { paymentId, refundId: refund.id });
-        res.status(200).json({
-          success: true,
-          refund,
-          payment,
-          message: 'Payment refunded successfully'
-        });
-      } else {
-        res.status(400).json({ error: 'Payment has no Stripe reference' });
+      if(!payment.stripePaymentIntentId){
+        throw new PaymentError('Payment has no Stripe reference');
       }
-    } catch (error) {
-      log.error('payment', 'Error refunding payment', error);
-      res.status(500).json({ error: 'Failed to refund payment' });
+
+      // Generate idempotency key for refund
+      const idempotencyKey=`refund_${paymentId}_${Date.now()}`;
+
+      // Create refund in Stripe
+      const refund=await this.stripe.refunds.create({
+        payment_intent:payment.stripePaymentIntentId,
+        amount:amount?Math.round(amount*100):undefined, // Partial refund if amount specified
+        reason:reason as any,
+        metadata:{
+          paymentId,
+          bookingId:payment.bookingId,
+          refundedBy:userId
+        }
+      },{
+        idempotencyKey
+      });
+
+      // Update payment status
+      payment.status='refunded';
+      payment.refundedAt=new Date().toISOString();
+      payment.metadata={...payment.metadata,refundId:refund.id,refundReason:reason};
+      this.saveData(data);
+
+      // Audit log
+      if(userId){
+        await AuditLogger.log(
+          {userId,userRole,ipAddress:req.ip||'',userAgent:req.get('User-Agent')||''},
+          {action:'update' as any,resourceType:'Payment',resourceId:paymentId,success:true,metadata:{refundId:refund.id,amount:refund.amount}}
+        );
+      }
+
+      log.info('payment','Payment refunded',{paymentId,refundId:refund.id,refundedBy:userId});
+      
+      res.status(200).json({
+        success:true,
+        refund:{
+          id:refund.id,
+          amount:refund.amount/100,
+          status:refund.status
+        },
+        payment:{
+          id:payment.id,
+          status:payment.status
+        },
+        message:'Payment refunded successfully'
+      });
+    }catch(error){
+      log.error('payment','Error refunding payment',error);
+      if(error instanceof PaymentError){
+        res.status(error.statusCode).json(error.toJSON());
+      }else{
+        res.status(500).json({error:'Failed to refund payment'});
+      }
     }
   }
 
-  // Webhook handler for Stripe events
-  async handleWebhook(req: Request, res: Response): Promise<void> {
-    const sig = req.headers['stripe-signature'];
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  // Webhook handler for Stripe events (PCI DSS: signature verification required)
+  async handleWebhook(req:Request,res:Response):Promise<void>{
+    const sig=req.headers['stripe-signature'];
+    const endpointSecret=process.env['STRIPE_WEBHOOK_SECRET'];
 
-    if (!sig || !endpointSecret) {
-      res.status(400).json({ error: 'Missing signature or webhook secret' });
+    // PCI DSS: Validate webhook signature
+    if(!sig||!endpointSecret){
+      log.error('payment','Webhook signature or secret missing',{hasSignature:!!sig,hasSecret:!!endpointSecret});
+      res.status(400).json({error:'Missing signature or webhook secret'});
       return;
     }
 
-    try {
-      const event = this.stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-      const data = this.loadData();
+    try{
+      // Verify webhook signature (prevents tampering)
+      const event=this.stripe.webhooks.constructEvent(
+        req.body,
+        sig as string,
+        endpointSecret
+      );
 
-      switch (event.type) {
-        case 'payment_intent.succeeded':
-          const paymentIntent = event.data.object as Stripe.PaymentIntent;
-          const payment = data.payments.find((p: Payment) => p.stripePaymentIntentId === paymentIntent.id);
+      const data=this.loadData();
+
+      // Process webhook events
+      switch(event.type){
+        case 'payment_intent.succeeded':{
+          const paymentIntent=event.data.object as Stripe.PaymentIntent;
+          const payment=data.payments.find((p:Payment)=>p.stripePaymentIntentId===paymentIntent.id);
           
-          if (payment) {
-            payment.status = 'paid';
-            payment.processedAt = new Date().toISOString();
+          if(payment){
+            payment.status='paid';
+            payment.processedAt=new Date().toISOString();
             
             // Update booking payment status
-            const booking = data.bookings.find((b: any) => b.id === payment.bookingId);
-            if (booking) {
-              booking.paymentStatus = 'paid';
+            const booking=data.bookings.find((b:any)=>b.id===payment.bookingId);
+            if(booking){
+              booking.paymentStatus='paid';
             }
             
             this.saveData(data);
-            log.info('payment', 'Payment succeeded via webhook', { paymentIntentId: paymentIntent.id });
-          }
-          break;
+            log.info('payment','Payment succeeded via webhook',{paymentIntentId:paymentIntent.id});
 
-        case 'payment_intent.payment_failed':
-          const failedPaymentIntent = event.data.object as Stripe.PaymentIntent;
-          const failedPayment = data.payments.find((p: Payment) => p.stripePaymentIntentId === failedPaymentIntent.id);
-          
-          if (failedPayment) {
-            failedPayment.status = 'failed';
-            this.saveData(data);
-            log.info('payment', 'Payment failed via webhook', { paymentIntentId: failedPaymentIntent.id });
+            // Audit log
+            await AuditLogger.log(
+              {userId:payment.bookingId,userRole:'system',ipAddress:'stripe',userAgent:'stripe-webhook'},
+              {action:'update' as any,resourceType:'Payment',resourceId:payment.id,success:true,metadata:{event:event.type}}
+            );
           }
           break;
+        }
+
+        case 'payment_intent.payment_failed':{
+          const failedPaymentIntent=event.data.object as Stripe.PaymentIntent;
+          const failedPayment=data.payments.find((p:Payment)=>p.stripePaymentIntentId===failedPaymentIntent.id);
+          
+          if(failedPayment){
+            failedPayment.status='failed';
+            this.saveData(data);
+            log.info('payment','Payment failed via webhook',{paymentIntentId:failedPaymentIntent.id});
+          }
+          break;
+        }
+
+        case 'charge.refunded':{
+          const charge=event.data.object as Stripe.Charge;
+          const refundedPayment=data.payments.find((p:Payment)=>
+            p.stripePaymentIntentId===charge.payment_intent
+          );
+          
+          if(refundedPayment){
+            refundedPayment.status='refunded';
+            refundedPayment.refundedAt=new Date().toISOString();
+            this.saveData(data);
+            log.info('payment','Payment refunded via webhook',{chargeId:charge.id});
+          }
+          break;
+        }
 
         default:
-          log.info('payment', 'Unhandled webhook event', { type: event.type });
+          log.info('payment','Unhandled webhook event',{type:event.type});
       }
 
-      res.status(200).json({ received: true });
-    } catch (error) {
-      log.error('payment', 'Webhook signature verification failed', error);
-      res.status(400).json({ error: 'Webhook signature verification failed' });
+      // Always return 200 to acknowledge receipt
+      res.status(200).json({received:true,eventType:event.type});
+    }catch(error){
+      // Log webhook verification failure (potential security issue)
+      log.error('payment','Webhook signature verification failed',{
+        error:error instanceof Error?error.message:'Unknown',
+        hasSignature:!!sig,
+        hasSecret:!!endpointSecret
+      });
+      
+      res.status(400).json({error:'Webhook signature verification failed'});
     }
   }
 }

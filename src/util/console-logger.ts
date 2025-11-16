@@ -3,11 +3,10 @@ import chalk from 'chalk';
 // Console logger with better formatting and organization
 class ConsoleLogger {
   private static instance: ConsoleLogger;
-  private logLevel: 'debug' | 'info' | 'warn' | 'error' = 'info';
   private isProduction: boolean;
 
   constructor() {
-    this.isProduction = process.env.NODE_ENV === 'production';
+    this.isProduction = process.env['NODE_ENV'] === 'production';
   }
 
   static getInstance(): ConsoleLogger {

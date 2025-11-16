@@ -64,7 +64,7 @@ export const submitReferral=async (req: Request, res: Response): Promise<void> =
     });
     
     // Generate referral link
-    const baseUrl=process.env.FRONTEND_URL || 'https://localhost:5001';
+    const baseUrl=process.env['FRONTEND_URL'] || 'https://localhost:5001';
     const referralLink=`${baseUrl}?ref=${referralCode}`;
     
     res.status(201).json({
@@ -97,6 +97,14 @@ export const submitReferral=async (req: Request, res: Response): Promise<void> =
 export const getReferralByCode=async (req: Request, res: Response): Promise<void> => {
   try {
     const { code }=req.params;
+    
+    if (!code) {
+      res.status(400).json({
+        success: false,
+        message: 'Referral code is required'
+      });
+      return;
+    }
     
     const referral=await (Referral.findOne as any)({ 
       referralCode: code.toUpperCase() 
@@ -162,11 +170,11 @@ export const getUserReferrals=async (req: Request, res: Response): Promise<void>
     // Calculate stats
     const stats={
       total: referrals.length,
-      pending: referrals.filter(r => r.status==='pending').length,
-      converted: referrals.filter(r => r.status==='converted').length,
+      pending: referrals.filter((r: any) => r.status==='pending').length,
+      converted: referrals.filter((r: any) => r.status==='converted').length,
       totalRewards: referrals
-        .filter(r => r.rewardStatus==='paid')
-        .reduce((sum, r) => sum + (r.rewardAmount || 0), 0)
+        .filter((r: any) => r.rewardStatus==='paid')
+        .reduce((sum: number, r: any) => sum + (r.rewardAmount || 0), 0)
     };
     
     res.status(200).json({
@@ -181,6 +189,103 @@ export const getUserReferrals=async (req: Request, res: Response): Promise<void>
     res.status(500).json({
       success: false,
       message: 'Failed to retrieve referrals',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * Get referral stats and program data
+ * GET /v0/referral
+ * Returns referral program structure with stats calculated from MongoDB
+ */
+export const getReferralStats=async (_req: Request, res: Response): Promise<void> => {
+  try {
+    // Calculate stats from MongoDB Referral model
+    const totalReferrals=await Referral.countDocuments();
+    const successfulReferrals=await Referral.countDocuments({ status: 'converted' });
+    const pendingReferrals=await Referral.countDocuments({ status: 'pending' });
+    
+    // Calculate total rewards paid
+    const paidReferrals=await (Referral.find as any)({ rewardStatus: 'paid' }).lean();
+    const totalRewardsPaid=paidReferrals.reduce((sum: number, r: any) => sum + (r.rewardAmount || 0), 0);
+    
+    // Calculate average reward per referral
+    const averageRewardPerReferral=successfulReferrals > 0 
+      ? Math.round((totalRewardsPaid / successfulReferrals) * 100) / 100 
+      : 0;
+
+    const referralStats={
+      totalReferrals,
+      totalRewardsPaid,
+      averageRewardPerReferral,
+      successfulReferrals,
+      pendingReferrals
+    };
+
+    // Load static referral program data (howItWorks, referralTerms, etc.)
+    // This maintains the existing structure while replacing stats with MongoDB data
+    const fs=require('fs');
+    const path=require('path');
+    const dataDir=path.join(__dirname, '../database');
+    const referralFilePath=path.join(dataDir, 'referral.json');
+
+    let referralProgramData: any={
+      referralProgram: {
+        title: 'Referral Program',
+        description: 'Join our referral program and earn rewards',
+        mainReward: {
+          amount: 50,
+          currency: 'USD',
+          type: 'cash',
+          description: '$50 cash reward for each successful referral'
+        },
+        bonusRewards: []
+      },
+      howItWorks: [],
+      referralTerms: [],
+      socialSharing: {
+        title: 'Share Your Referral Link',
+        description: 'Share with friends and start earning rewards',
+        platforms: []
+      },
+      referralForm: {
+        title: 'Get Your Referral Link',
+        description: 'Fill out the form below to get your unique referral link',
+        fields: []
+      },
+      successStories: []
+    };
+
+    // Try to load static data if file exists
+    try {
+      if (fs.existsSync(referralFilePath)) {
+        const fileData=fs.readFileSync(referralFilePath, 'utf8');
+        const parsedData=JSON.parse(fileData);
+        referralProgramData={
+          ...parsedData,
+          referralStats // Replace stats with MongoDB data
+        };
+      }
+    } catch (fileError) {
+      consoleLogger.info('referral', 'Could not load static referral data, using defaults', fileError);
+    }
+
+    // Ensure referralStats is always from MongoDB
+    referralProgramData.referralStats=referralStats;
+
+    consoleLogger.info('referral', 'Fetched referral stats from MongoDB', {
+      totalReferrals,
+      successfulReferrals,
+      totalRewardsPaid
+    });
+
+    res.status(200).json(referralProgramData);
+  } catch (error) {
+    consoleLogger.error('referral', 'Failed to get referral stats', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch referral data',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
@@ -234,6 +339,7 @@ export default {
   submitReferral,
   getReferralByCode,
   getUserReferrals,
-  updateReferralStatus
+  updateReferralStatus,
+  getReferralStats
 };
 

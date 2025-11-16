@@ -2,12 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
-import { optionalAuth } from './authMiddleware';
+// import { optionalAuth } from './authMiddleware'; // Unused import
 
 // Enhanced rate limiting configuration
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 50 : 100, // Stricter in production
+  max: process.env['NODE_ENV'] === 'production' ? 50 : 100, // Stricter in production
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again after 15 minutes'
@@ -31,13 +31,13 @@ const apiLimiter = rateLimit({
 // API Key validation middleware
 const validateAPIKey = (req: Request, res: Response, next: NextFunction) => {
   // Skip API key validation if disabled
-  if (process.env.API_KEY_ENABLED !== 'true') {
+  if (process.env['API_KEY_ENABLED'] !== 'true') {
     return next();
   }
 
   const apiKey = req.headers['x-api-key'] as string;
-  const frontendKey = process.env.API_KEY_FRONTEND;
-  const adminKey = process.env.API_KEY_ADMIN;
+  const frontendKey = process.env['API_KEY_FRONTEND'];
+  const adminKey = process.env['API_KEY_ADMIN'];
 
   // Check if API key is provided
   if (!apiKey) {
@@ -85,7 +85,7 @@ const validateAPIKey = (req: Request, res: Response, next: NextFunction) => {
 };
 
 // Enhanced security headers configuration
-const securityHeaders = process.env.NODE_ENV === 'development' 
+const securityHeaders = process.env['NODE_ENV'] === 'development' 
   ? helmet({
       contentSecurityPolicy: false,
       crossOriginEmbedderPolicy: false,
@@ -106,40 +106,43 @@ const securityHeaders = process.env.NODE_ENV === 'development'
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:", "https:"],
+          scriptSrc: ["'self'"], // Removed unsafe-inline and unsafe-eval
+          styleSrc: ["'self'","'unsafe-inline'"], // Keep for CSS-in-JS
+          imgSrc: ["'self'","data:","https:"],
           connectSrc: [
             "'self'",
-            "https://*.vercel.app",
-            "https://pack-go-movers-backend.onrender.com",
             "https://www.packmovego.com",
             "https://packmovego.com",
-            "https://api.packmovego.com"
+            "https://api.packmovego.com",
+            "https://*.stripe.com"
           ],
-          fontSrc: ["'self'"],
+          fontSrc: ["'self'","data:"],
           objectSrc: ["'none'"],
           mediaSrc: ["'self'"],
           frameSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'none'"],
           upgradeInsecureRequests: []
-        }
+        },
+        reportOnly: false
       },
-      crossOriginEmbedderPolicy: true,
-      crossOriginOpenerPolicy: true,
-      crossOriginResourcePolicy: { policy: "same-site" },
-      dnsPrefetchControl: { allow: false },
-      frameguard: { action: "deny" },
+      crossOriginEmbedderPolicy: {policy:"require-corp"},
+      crossOriginOpenerPolicy: {policy:"same-origin"},
+      crossOriginResourcePolicy: {policy:"same-site"},
+      dnsPrefetchControl: {allow:false},
+      frameguard: {action:"deny"},
       hidePoweredBy: true,
       hsts: {
-        maxAge: 31536000,
-        includeSubDomains: true,
-        preload: true
+        maxAge:63072000, // 2 years
+        includeSubDomains:true,
+        preload:true
       },
       ieNoOpen: true,
       noSniff: true,
       originAgentCluster: true,
-      permittedCrossDomainPolicies: { permittedPolicies: "none" },
-      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+      permittedCrossDomainPolicies: {permittedPolicies:"none"},
+      referrerPolicy: {policy:"strict-origin-when-cross-origin"},
       xssFilter: true
     });
 
@@ -173,7 +176,7 @@ const validateRequest = (req: Request, res: Response, next: NextFunction) => {
     }
   }
 
-  next();
+  return next();
 };
 
 // Request size limiter
@@ -189,7 +192,7 @@ const requestSizeLimiter = (req: Request, res: Response, next: NextFunction) => 
     });
   }
 
-  next();
+  return next();
 };
 
 // Additional security headers
@@ -203,18 +206,31 @@ const additionalSecurityHeaders = (req: Request, res: Response, next: NextFuncti
   // Enable XSS protection
   res.setHeader('X-XSS-Protection', '1; mode=block');
   
+  // Permissions Policy (replaces Feature-Policy)
+  res.setHeader('Permissions-Policy', 
+    'geolocation=(self), microphone=(), camera=(), payment=(self), usb=()');
+  
+  // Referrer Policy
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
   // Prevent caching of sensitive data
-  if (req.path.startsWith('/api/')) {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  if (req.path.startsWith('/api/') || req.path.startsWith('/auth/')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
   }
 
-  next();
+  // Expect-CT header for certificate transparency
+  if(process.env['NODE_ENV']==='production'){
+    res.setHeader('Expect-CT', 'max-age=86400, enforce');
+  }
+
+  return next();
 };
 
 // Enhanced security monitoring middleware
-const securityMonitoring = (req: Request, res: Response, next: NextFunction) => {
+const securityMonitoring = (req: Request, _res: Response, next: NextFunction) => {
   const clientIp = req.ip || req.socket.remoteAddress || '';
   const userAgent = req.get('User-Agent') || 'Unknown';
   const requestPath = req.path;

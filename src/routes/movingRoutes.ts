@@ -50,6 +50,10 @@ router.post('/packing-tips', asyncHandler(async (req: Request, res: Response) =>
 router.get('/services/:serviceType', asyncHandler(async (req: Request, res: Response) => {
   const { serviceType } = req.params;
 
+  if (!serviceType) {
+    return sendValidationError(res, ['Service type is required']);
+  }
+
   try {
     const aiResponse = await aiService.getServiceInformation(serviceType);
     return sendSuccess(res, aiResponse, 'Service information provided');
@@ -95,7 +99,7 @@ router.post('/bookings', asyncHandler(async (req: Request, res: Response) => {
     // Calculate rough quote amount
     const quoteAmount = calculateQuoteAmount(serviceType, distance, inventory);
 
-    const booking = new Booking({
+    const booking = new (Booking as any)({
       customerId,
       serviceType,
       moveType,
@@ -132,14 +136,14 @@ router.get('/bookings/customer/:customerId', asyncHandler(async (req: Request, r
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
     
-    const bookings = await Booking.find(query)
+    const bookings = await (Booking as any).find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit as string))
       .populate('customerId', 'firstName lastName email')
       .populate('moverId', 'firstName lastName moverInfo');
 
-    const total = await Booking.countDocuments(query);
+    const total = await (Booking as any).countDocuments(query);
 
     return sendSuccess(res, bookings, 'Customer bookings retrieved', 200, {
       pagination: {
@@ -157,6 +161,10 @@ router.get('/bookings/customer/:customerId', asyncHandler(async (req: Request, r
 // Get booking by ID
 router.get('/bookings/:bookingId', asyncHandler(async (req: Request, res: Response) => {
   const { bookingId } = req.params;
+
+  if (!bookingId) {
+    return sendValidationError(res, ['Booking ID is required']);
+  }
 
   try {
     const booking = await Booking.findByBookingId(bookingId);
@@ -178,6 +186,10 @@ router.get('/bookings/:bookingId', asyncHandler(async (req: Request, res: Respon
 router.patch('/bookings/:bookingId/status', asyncHandler(async (req: Request, res: Response) => {
   const { bookingId } = req.params;
   const { status, notes, updatedBy } = req.body;
+
+  if (!bookingId) {
+    return sendValidationError(res, ['Booking ID is required']);
+  }
 
   if (!status) {
     return sendValidationError(res, ['Status is required']);
@@ -205,6 +217,10 @@ router.patch('/bookings/:bookingId/location', asyncHandler(async (req: Request, 
   const { bookingId } = req.params;
   const { latitude, longitude, address } = req.body;
 
+  if (!bookingId) {
+    return sendValidationError(res, ['Booking ID is required']);
+  }
+
   if (!latitude || !longitude) {
     return sendValidationError(res, ['Latitude and longitude are required']);
   }
@@ -228,6 +244,10 @@ router.patch('/bookings/:bookingId/location', asyncHandler(async (req: Request, 
 router.post('/bookings/:bookingId/checkpoints', asyncHandler(async (req: Request, res: Response) => {
   const { bookingId } = req.params;
   const { location, status, notes } = req.body;
+
+  if (!bookingId) {
+    return sendValidationError(res, ['Booking ID is required']);
+  }
 
   if (!location) {
     return sendValidationError(res, ['Location is required']);
@@ -254,6 +274,10 @@ router.post('/bookings/:bookingId/checkpoints', asyncHandler(async (req: Request
 router.post('/bookings/:bookingId/messages', asyncHandler(async (req: Request, res: Response) => {
   const { bookingId } = req.params;
   const { senderId, senderType, message, attachments } = req.body;
+
+  if (!bookingId) {
+    return sendValidationError(res, ['Booking ID is required']);
+  }
 
   if (!senderId || !senderType || !message) {
     return sendValidationError(res, ['Sender ID, sender type, and message are required']);
@@ -294,7 +318,7 @@ router.post('/ai/ask', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // Get AI service status
-router.get('/ai/status', (req: Request, res: Response) => {
+router.get('/ai/status', (_req: Request, res: Response) => {
   const status = aiService.getStatus();
   return sendSuccess(res, status, 'AI service status retrieved');
 });
@@ -302,7 +326,7 @@ router.get('/ai/status', (req: Request, res: Response) => {
 // === MOVER ROUTES ===
 
 // Get available movers
-router.get('/movers/available', asyncHandler(async (req: Request, res: Response) => {
+router.get('/movers/available', asyncHandler(async (_req: Request, res: Response) => {
   try {
     const movers = await User.findAvailableMovers();
     const populatedMovers = await User.populate(movers, {
@@ -346,6 +370,10 @@ router.patch('/movers/:moverId/location', asyncHandler(async (req: Request, res:
 // Rate a booking
 router.post('/bookings/:bookingId/rate', asyncHandler(async (req: Request, res: Response) => {
   const { bookingId } = req.params;
+
+  if (!bookingId) {
+    return sendValidationError(res, ['Booking ID is required']);
+  }
   const { overall, communication, punctuality, care, value, comment } = req.body;
 
   if (!overall || !communication || !punctuality || !care || !value) {

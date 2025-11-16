@@ -178,7 +178,7 @@ export const searchAll = async (req: Request, res: Response) => {
     // Limit results
     const limitedResults = results.slice(0, resultLimit);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       query: q,
       count: limitedResults.length,
@@ -187,7 +187,7 @@ export const searchAll = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('❌ Search error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Search failed',
       results: []

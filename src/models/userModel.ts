@@ -12,27 +12,42 @@ export interface IUser extends Document {
   isEmailVerified(): boolean;
   emailVerificationToken?: string;
   emailVerificationExpires?: Date;
-  passwordResetToken?: string;
-  passwordResetExpires?: Date;
   // Instance methods
   updateLocation(latitude: number, longitude: number): Promise<IUser>;
   setAvailability(isAvailable: boolean): Promise<IUser>;
   updateRating(newRating: number): Promise<IUser>;
   // Basic information
   email: string;
+  username?: string;
   firstName: string;
   lastName: string;
   phone: string;
   avatar?: string;
   
+  // SMS Verification
+  verificationCode?: string;
+  verificationCodeExpiry?: Date;
+  phoneVerified: boolean;
+  
   // Authentication
   password?: string;
+  passwordHistory?: string[]; // Last 5 password hashes
   oauthProvider?: 'google' | 'facebook';
   oauthId?: string;
   refreshToken?: string;
   
+  // Account security
+  loginAttempts?: number;
+  lockUntil?: Date;
+  lastPasswordChange?: Date;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
+  twoFactorEnabled?: boolean;
+  twoFactorSecret?: string;
+  backupCodes?: string[];
+  
   // Role and permissions
-  role: 'customer' | 'mover' | 'admin' | 'manager';
+  role: 'customer' | 'mover' | 'admin' | 'manager' | 'shiftlead';
   isActive: boolean;
   isVerified: boolean;
   
@@ -115,24 +130,35 @@ const userSchema = new Schema<IUser>({
   // Basic information
   email: {
     type: String,
-    required: true,
+    required: false,
     unique: true,
+    sparse: true,
     lowercase: true,
+    trim: true
+  },
+  username: {
+    type: String,
+    required: false,
+    unique: true,
+    sparse: true,
     trim: true
   },
   firstName: {
     type: String,
-    required: true,
-    trim: true
+    required: false,
+    trim: true,
+    default: ''
   },
   lastName: {
     type: String,
-    required: true,
-    trim: true
+    required: false,
+    trim: true,
+    default: ''
   },
   phone: {
     type: String,
     required: true,
+    unique: true,
     trim: true
   },
   avatar: {
@@ -140,13 +166,30 @@ const userSchema = new Schema<IUser>({
     default: null
   },
   
+  // SMS Verification
+  verificationCode: {
+    type: String,
+    default: null
+  },
+  verificationCodeExpiry: {
+    type: Date,
+    default: null
+  },
+  phoneVerified: {
+    type: Boolean,
+    default: false
+  },
+  
   // Authentication
   password: {
     type: String,
-    required: function() {
-      return !this.oauthProvider; // Password required only if not OAuth
-    },
-    minlength: 6
+    required: false,
+    minlength: 8
+  },
+  passwordHistory: {
+    type: [String],
+    default: [],
+    select: false // Don't return in queries by default
   },
   oauthProvider: {
     type: String,
@@ -166,10 +209,47 @@ const userSchema = new Schema<IUser>({
     default: []
   },
   
+  // Account security
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date,
+    default: null
+  },
+  lastPasswordChange: {
+    type: Date,
+    default: Date.now
+  },
+  passwordResetToken: {
+    type: String,
+    default: null,
+    select: false
+  },
+  passwordResetExpires: {
+    type: Date,
+    default: null
+  },
+  twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  },
+  twoFactorSecret: {
+    type: String,
+    default: null,
+    select: false // Sensitive data
+  },
+  backupCodes: {
+    type: [String],
+    default: [],
+    select: false // Sensitive data
+  },
+  
   // Role and permissions
   role: {
     type: String,
-    enum: ['customer', 'mover', 'admin', 'manager'],
+    enum: ['customer', 'mover', 'admin', 'manager', 'shiftlead'],
     default: 'customer',
     required: true
   },
@@ -311,7 +391,7 @@ const userSchema = new Schema<IUser>({
 }, {
   timestamps: true,
   toJSON: {
-    transform: function(doc, ret) {
+    transform: function(_doc, ret) {
       delete ret.password;
       delete ret.refreshToken;
       return ret;
@@ -320,9 +400,12 @@ const userSchema = new Schema<IUser>({
 });
 
 // Indexes for better query performance
-// Note: email index is automatically created by unique: true in schema
+// Note: email and phone indexes are automatically created by unique: true in schema
 userSchema.index({ oauthProvider: 1, oauthId: 1 });
 userSchema.index({ role: 1 });
+userSchema.index({ username: 1 });
+userSchema.index({ phone: 1 });
+userSchema.index({ verificationCode: 1 });
 userSchema.index({ 'moverInfo.isAvailable': 1 });
 userSchema.index({ 'moverInfo.currentLocation': '2dsphere' });
 
@@ -352,6 +435,14 @@ userSchema.pre('save', function(next) {
 // Static methods
 userSchema.statics.findByEmail = function(email: string) {
   return this.findOne({ email: email.toLowerCase() });
+};
+
+userSchema.statics.findByPhone = function(phone: string) {
+  return this.findOne({ phone });
+};
+
+userSchema.statics.findByUsername = function(username: string) {
+  return this.findOne({ username });
 };
 
 userSchema.statics.findByOAuth = function(provider: string, oauthId: string) {
@@ -463,13 +554,15 @@ userSchema.methods.updateRating = function(newRating: number) {
 };
 
 // Interface for the model with static methods
-interface IUserModel extends mongoose.Model<IUser> {
+interface IUserModel extends mongoose.Model<IUser, {}, {}, {}, IUser, typeof userSchema, IUser> {
   findByEmail(email: string): Promise<IUser | null>;
+  findByPhone(phone: string): Promise<IUser | null>;
+  findByUsername(username: string): Promise<IUser | null>;
   findByOAuth(provider: string, oauthId: string): Promise<IUser | null>;
   findAvailableMovers(): Promise<IUser[]>;
 }
 
 // Export the model (use existing model if already compiled)
-export const User = (mongoose.models.User || mongoose.model<IUser>('User', userSchema)) as IUserModel;
+export const User = (mongoose.models['User'] || mongoose.model<IUser>('User', userSchema)) as IUserModel;
 
 export default User; 

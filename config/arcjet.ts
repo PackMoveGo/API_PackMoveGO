@@ -13,43 +13,36 @@ console.log(`   Environment: ${isProduction ? 'Production' : 'Development'}`);
 
 let aj: any;
 
-// In development, create a dummy/noop Arcjet instance
-if(!isProduction) {
-  console.log('   Arcjet: COMPLETELY DISABLED (development mode)');
-  // Create a mock object that doesn't do anything
-  aj={
-    protect: async (req: any, options: any) => ({
-      isDenied: () => false,
-      isAllowed: () => true,
-      reason: null
-    })
-  };
-} else {
-  console.log(`   Arcjet Mode: LIVE`);
-  aj=arcjet({
-    key: config.ARCJET_KEY!,
-    characteristics: ["ip.src"],
-    rules: [
-      shield({ mode: "LIVE" }),
-      detectBot({
-        mode: "LIVE",
-        allow: [
-          "CATEGORY:VERCEL",
-          "CATEGORY:MONITOR",
-          "CATEGORY:SEARCH_ENGINE",
-          "POSTMAN",
-          "CURL", // Allow curl for testing
-        ],
-      }),
-      tokenBucket({
-        mode: "LIVE",
-        refillRate: 20,
-        interval: 10,
-        capacity: 30,
-      }),
-    ],
-  });
-}
+// Configure Arcjet based on environment
+// In development: use DRY_RUN mode (logs but doesn't block)
+// In production: use LIVE mode (actively blocks threats)
+const arcjetMode = isProduction ? "LIVE" : "DRY_RUN";
+
+console.log(`   Arcjet Mode: ${arcjetMode}`);
+
+aj=arcjet({
+  key: config.ARCJET_KEY!,
+  characteristics: ["ip.src"],
+  rules: [
+    shield({ mode: arcjetMode }),
+    detectBot({
+      mode: arcjetMode,
+      allow: [
+        "CATEGORY:VERCEL",
+        "CATEGORY:MONITOR",
+        "CATEGORY:SEARCH_ENGINE",
+        "POSTMAN",
+        "CURL", // Allow curl for testing
+      ],
+    }),
+    tokenBucket({
+      mode: arcjetMode,
+      refillRate: 20,
+      interval: 10,
+      capacity: 30,
+    }),
+  ],
+});
 
 export default aj;
 

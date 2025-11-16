@@ -38,8 +38,8 @@ export const universalCorsMiddleware = (req: Request, res: Response, next: NextF
 export const standardCorsMiddleware = cors(corsOptions);
 
 // Debug CORS middleware for troubleshooting
-export const debugCorsMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  if (process.env.NODE_ENV === 'development') {
+export const debugCorsMiddleware = (req: Request, _res: Response, next: NextFunction) => {
+  if (process.env['NODE_ENV'] === 'development') {
     console.log(`🔍 CORS Debug: ${req.method} ${req.path}`);
     console.log(`   Origin: ${req.headers.origin || 'None'}`);
     console.log(`   User-Agent: ${req.headers['user-agent']?.substring(0, 50) || 'None'}`);

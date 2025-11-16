@@ -2,6 +2,10 @@ import { Request, Response } from 'express';
 import Quote from '../models/quoteModel';
 import { consoleLogger } from '../util/console-logger';
 
+// Rate limiting: Track IP addresses and their last submission time
+const ipSubmissions=new Map<string, number>();
+const SUBMISSION_COOLDOWN=3*24*60*60*1000; // 3 days in milliseconds
+
 /**
  * Submit a quote request
  * POST /v0/quotes/submit
@@ -9,6 +13,24 @@ import { consoleLogger } from '../util/console-logger';
 export const submitQuote=async (req: Request, res: Response): Promise<void> => {
   try {
     const { fromZip, toZip, moveDate, rooms, firstName, lastName, phone, email, moveType }=req.body;
+    const clientIp=req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
+    
+    // Check IP rate limiting
+    const lastSubmission=ipSubmissions.get(clientIp);
+    if(lastSubmission){
+      const timeSinceLastSubmission=Date.now()-lastSubmission;
+      if(timeSinceLastSubmission<SUBMISSION_COOLDOWN){
+        const remainingTime=SUBMISSION_COOLDOWN-timeSinceLastSubmission;
+        const daysRemaining=Math.ceil(remainingTime/(24*60*60*1000));
+        
+        res.status(429).json({
+          success:false,
+          message:`You can only submit a quote request once every 3 days. Please try again in ${daysRemaining} day(s).`,
+          retryAfter:remainingTime
+        });
+        return;
+      }
+    }
     
     // Validation
     const errors: string[]=[];
@@ -65,10 +87,14 @@ export const submitQuote=async (req: Request, res: Response): Promise<void> => {
     
     await quote.save();
     
+    // Update IP rate limiting
+    ipSubmissions.set(clientIp, Date.now());
+    
     consoleLogger.info('quote', 'New quote request submitted', {
       quoteId: quote._id,
       fullName: quote.fullName,
-      phone: quote.phone
+      phone: quote.phone,
+      ip: clientIp
     });
     
     res.status(201).json({
@@ -176,9 +202,58 @@ export const updateQuoteStatus=async (req: Request, res: Response): Promise<void
   }
 };
 
+/**
+ * Check if IP can submit a quote (rate limiting check)
+ * GET /v0/quotes/check-limit
+ */
+export const checkQuoteLimit=async (req: Request, res: Response): Promise<void> => {
+  try {
+    const clientIp=req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
+    const lastSubmission=ipSubmissions.get(clientIp);
+    
+    if(!lastSubmission){
+      res.status(200).json({
+        success:true,
+        canSubmit:true,
+        message:'You can submit a quote request'
+      });
+      return;
+    }
+    
+    const timeSinceLastSubmission=Date.now()-lastSubmission;
+    const canSubmit=timeSinceLastSubmission>=SUBMISSION_COOLDOWN;
+    
+    if(!canSubmit){
+      const remainingTime=SUBMISSION_COOLDOWN-timeSinceLastSubmission;
+      const daysRemaining=Math.ceil(remainingTime/(24*60*60*1000));
+      
+      res.status(200).json({
+        success:true,
+        canSubmit:false,
+        message:`You can submit another quote in ${daysRemaining} day(s)`,
+        retryAfter:remainingTime,
+        daysRemaining
+      });
+    }else{
+      res.status(200).json({
+        success:true,
+        canSubmit:true,
+        message:'You can submit a quote request'
+      });
+    }
+  } catch (error) {
+    consoleLogger.error('quote', 'Failed to check quote limit', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check submission status'
+    });
+  }
+};
+
 export default {
   submitQuote,
   getAllQuotes,
-  updateQuoteStatus
+  updateQuoteStatus,
+  checkQuoteLimit
 };
 

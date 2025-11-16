@@ -28,15 +28,22 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
 
-    /* Type Checking */
-    "strict": false,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
-    "strictFunctionTypes": false,
-    "strictBindCallApply": false,
-    "strictPropertyInitialization": false,
-    "noImplicitThis": false,
-    "alwaysStrict": false,
+    /* Type Checking - Enhanced for Security */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": false,
     "noEmit": false,
     "noEmitOnError": false,
 
@@ -61,10 +68,11 @@
 
     /* Advanced */
     "types": ["node"],
-    "typeRoots": ["../node_modules/@types"]
+    "typeRoots": ["../node_modules/@types","../src/types"]
   },
   "include": [
     "../src/**/*",
+    "../src/types/**/*",
     "./**/*"
   ],
   "exclude": [

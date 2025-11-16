@@ -51,7 +51,7 @@ class AuthDataService {
 
   constructor() {
     this.usersDataPath = path.join(__dirname, '../data/users.json');
-    this.jwtSecret = process.env.JWT_SECRET || 'your-jwt-secret-key';
+    this.jwtSecret = process.env['JWT_SECRET'] || 'your-jwt-secret-key';
   }
 
   /**
@@ -318,7 +318,7 @@ class AuthDataService {
       const users = this.loadUsers();
       const userIndex = users.findIndex(user => user.id === userId);
       
-      if (userIndex !== -1) {
+      if (userIndex !== -1 && users[userIndex]) {
         users[userIndex].lastLogin = new Date().toISOString();
         this.saveUsers(users);
       }

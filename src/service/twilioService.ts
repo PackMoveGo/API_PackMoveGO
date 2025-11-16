@@ -100,10 +100,10 @@ class TwilioService {
   }
 
   /**
-   * Generate random 6-digit verification code
+   * Generate random 8-digit verification code
    */
   generateVerificationCode(): string {
-    return Math.floor(100000 + Math.random()*900000).toString();
+    return Math.floor(10000000 + Math.random()*90000000).toString();
   }
 
   /**

@@ -1,61 +1,31 @@
-import { Request, Response, NextFunction } from 'express';
-import { consoleLogger } from '../util/console-logger';
+import{Request,Response,NextFunction} from 'express';
+import{consoleLogger} from '../util/console-logger';
+import{
+  AppError,
+  AuthenticationError,
+  AuthorizationError,
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  RateLimitError,
+  DatabaseError,
+  SecurityError,
+  PaymentError
+} from '../util/errors';
 
-// Custom error classes for better error handling
-export class AppError extends Error {
-  public statusCode: number;
-  public isOperational: boolean;
-
-  constructor(message: string, statusCode: number, isOperational = true) {
-    super(message);
-    this.statusCode = statusCode;
-    this.isOperational = isOperational;
-
-    Error.captureStackTrace(this, this.constructor);
-  }
-}
-
-export class ValidationError extends AppError {
-  constructor(message: string) {
-    super(message, 400);
-  }
-}
-
-export class AuthenticationError extends AppError {
-  constructor(message: string = 'Authentication required') {
-    super(message, 401);
-  }
-}
-
-export class AuthorizationError extends AppError {
-  constructor(message: string = 'Access forbidden') {
-    super(message, 403);
-  }
-}
-
-export class NotFoundError extends AppError {
-  constructor(resource: string = 'Resource') {
-    super(`${resource} not found`, 404);
-  }
-}
-
-export class ConflictError extends AppError {
-  constructor(message: string = 'Resource conflict') {
-    super(message, 409);
-  }
-}
-
-export class RateLimitError extends AppError {
-  constructor(message: string = 'Too many requests') {
-    super(message, 429);
-  }
-}
-
-export class DatabaseError extends AppError {
-  constructor(message: string = 'Database service unavailable') {
-    super(message, 503);
-  }
-}
+// Re-export for backward compatibility
+export{
+  AppError,
+  ValidationError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ConflictError,
+  RateLimitError,
+  DatabaseError,
+  SecurityError,
+  PaymentError
+};
 
 // Request ID middleware for tracking requests
 export const requestIdMiddleware = (req: Request, res: Response, next: NextFunction) => {
@@ -69,109 +39,129 @@ export const requestIdMiddleware = (req: Request, res: Response, next: NextFunct
 };
 
 // Main error handler middleware
-export const errorHandler = (
-  err: Error | AppError,
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const requestId = (req as any).requestId || 'unknown';
-  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-  const userAgent = req.get('User-Agent') || 'unknown';
+export const errorHandler=(
+  err:Error|AppError,
+  req:Request,
+  res:Response,
+  _next:NextFunction
+)=>{
+  const requestId=(req as any).requestId||'unknown';
+  const clientIp=req.ip||req.socket.remoteAddress||'unknown';
+  const userAgent=req.get('User-Agent')||'unknown';
 
-  // Log the error
-  consoleLogger.error('error-handler', 'Server Error', {
+  // Log the error with appropriate level
+  const logLevel=err instanceof AppError && err.isOperational?'warn':'error';
+  
+  consoleLogger[logLevel]('error-handler','Server Error',{
     requestId,
     clientIp,
     userAgent,
-    path: req.path,
-    method: req.method,
-    error: err.message,
-    stack: err.stack,
-    timestamp: new Date().toISOString()
+    path:req.path,
+    method:req.method,
+    error:err.message,
+    stack:err.stack,
+    timestamp:new Date().toISOString(),
+    isOperational:err instanceof AppError?err.isOperational:false
   });
 
-  // Determine status code and message
-  let statusCode = 500;
-  let message = 'Something went wrong!';
-  let errorCode: string | undefined;
+  // Use toJSON if available (our custom errors)
+  if(err instanceof AppError && typeof (err as any).toJSON==='function'){
+    const errorResponse=(err as any).toJSON();
+    errorResponse.requestId=requestId;
+    errorResponse.path=req.path;
+    errorResponse.method=req.method;
 
-  if (err instanceof AppError) {
-    statusCode = err.statusCode;
-    message = err.message;
-  } else if (err.name === 'ValidationError') {
-    statusCode = 400;
-    message = 'Validation failed';
-    errorCode = 'VALIDATION_ERROR';
-  } else if (err.name === 'UnauthorizedError' || err.name === 'JsonWebTokenError') {
-    statusCode = 401;
-    message = 'Unauthorized access';
-    errorCode = 'AUTHENTICATION_ERROR';
-  } else if (err.name === 'ForbiddenError') {
-    statusCode = 403;
-    message = 'Access forbidden';
-    errorCode = 'AUTHORIZATION_ERROR';
-  } else if (err.name === 'NotFoundError') {
-    statusCode = 404;
-    message = 'Resource not found';
-    errorCode = 'NOT_FOUND';
-  } else if (err.name === 'ConflictError') {
-    statusCode = 409;
-    message = 'Resource conflict';
-    errorCode = 'CONFLICT_ERROR';
-  } else if (err.name === 'RateLimitError') {
-    statusCode = 429;
-    message = 'Too many requests';
-    errorCode = 'RATE_LIMIT_EXCEEDED';
-  } else if (err.name === 'MongoError' || err.name === 'MongooseError') {
-    statusCode = 503;
-    message = 'Database service unavailable';
-    errorCode = 'DATABASE_ERROR';
-  } else if (err.name === 'SyntaxError') {
-    statusCode = 400;
-    message = 'Invalid request format';
-    errorCode = 'INVALID_REQUEST';
-  } else if (err.name === 'TypeError') {
-    statusCode = 400;
-    message = 'Invalid data type';
-    errorCode = 'TYPE_ERROR';
+    // Add debug info in development
+    if(process.env['NODE_ENV']==='development'){
+      errorResponse.debug={
+        stack:err.stack,
+        details:err.details
+      };
+    }
+
+    // Add rate limit headers if needed
+    if(err instanceof RateLimitError){
+      res.setHeader('Retry-After','60');
+      errorResponse.retryAfter=60;
+    }
+
+    res.setHeader('Content-Type','application/json');
+    return res.status(err.statusCode).json(errorResponse);
   }
 
-  // Prepare error response
-  const errorResponse: any = {
-    success: false,
+  // Handle standard errors
+  let statusCode=500;
+  let message='Something went wrong!';
+  let errorCode:string|undefined;
+
+  if(err.name==='ValidationError'){
+    statusCode=400;
+    message='Validation failed';
+    errorCode='VALIDATION_ERROR';
+  }else if(err.name==='UnauthorizedError'||err.name==='JsonWebTokenError'){
+    statusCode=401;
+    message='Unauthorized access';
+    errorCode='AUTHENTICATION_ERROR';
+  }else if(err.name==='ForbiddenError'){
+    statusCode=403;
+    message='Access forbidden';
+    errorCode='AUTHORIZATION_ERROR';
+  }else if(err.name==='NotFoundError'){
+    statusCode=404;
+    message='Resource not found';
+    errorCode='NOT_FOUND';
+  }else if(err.name==='ConflictError'){
+    statusCode=409;
+    message='Resource conflict';
+    errorCode='CONFLICT_ERROR';
+  }else if(err.name==='RateLimitError'){
+    statusCode=429;
+    message='Too many requests';
+    errorCode='RATE_LIMIT_EXCEEDED';
+  }else if(err.name==='MongoError'||err.name==='MongooseError'){
+    statusCode=503;
+    message='Database service unavailable';
+    errorCode='DATABASE_ERROR';
+  }else if(err.name==='SyntaxError'){
+    statusCode=400;
+    message='Invalid request format';
+    errorCode='INVALID_REQUEST';
+  }else if(err.name==='TypeError'){
+    statusCode=400;
+    message='Invalid data type';
+    errorCode='TYPE_ERROR';
+  }
+
+  const errorResponse:any={
+    success:false,
     message,
-    timestamp: new Date().toISOString(),
+    timestamp:new Date().toISOString(),
     requestId,
-    path: req.path,
-    method: req.method
+    path:req.path,
+    method:req.method
   };
 
-  // Add error code if available
-  if (errorCode) {
-    errorResponse.errorCode = errorCode;
+  if(errorCode){
+    errorResponse.errorCode=errorCode;
   }
 
-  // Add detailed error information in development
-  if (process.env.NODE_ENV === 'development') {
-    errorResponse.debug = {
-      message: err.message,
-    stack: err.stack,
-    name: err.name
+  if(process.env['NODE_ENV']==='development'){
+    errorResponse.debug={
+      message:err.message,
+      stack:err.stack,
+      name:err.name
     };
+  }else if(statusCode===500){
+    errorResponse.message='An unexpected error occurred. Please try again later.';
   }
 
-  // Add rate limit information if applicable
-  if (statusCode === 429) {
-    errorResponse.retryAfter = 60; // 1 minute
-    res.setHeader('Retry-After', '60');
+  if(statusCode===429){
+    errorResponse.retryAfter=60;
+    res.setHeader('Retry-After','60');
   }
 
-  // Set appropriate headers
-  res.setHeader('Content-Type', 'application/json');
-  
-  // Send error response
-  res.status(statusCode).json(errorResponse);
+  res.setHeader('Content-Type','application/json');
+  return res.status(statusCode).json(errorResponse);
 };
 
 // Async error wrapper for route handlers
@@ -221,8 +211,8 @@ export const notFoundHandler = (req: Request, res: Response) => {
 
 // Maintenance mode middleware
 export const maintenanceModeMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  const maintenanceMode = process.env.MAINTENANCE_MODE === 'true';
-  const maintenanceMessage = process.env.MAINTENANCE_MESSAGE || 'Site is under maintenance. Please check back soon.';
+  const maintenanceMode = process.env['MAINTENANCE_MODE'] === 'true';
+  const maintenanceMessage = process.env['MAINTENANCE_MESSAGE'] || 'Site is under maintenance. Please check back soon.';
   
   if (maintenanceMode && !req.path.startsWith('/health')) {
     return res.status(503).json({
@@ -233,7 +223,7 @@ export const maintenanceModeMiddleware = (req: Request, res: Response, next: Nex
     });
   }
   
-  next();
+  return next();
 };
 
 // Request timeout middleware

@@ -35,10 +35,10 @@ export const signup = async (req: Request, res: Response) => {
     console.error('Signup error:', error);
 
     if (error instanceof mongoose.Error.ValidationError) {
-      const formattedErrors = Object.keys(error.errors).map(key => ({
+      const formattedErrors = error.errors ? Object.keys(error.errors).map(key => ({
         field: key,
-        message: error.errors[key].message
-      }));
+        message: error.errors[key]?.message || 'Validation error'
+      })) : [];
 
       return res.status(400).json({
         success: false,

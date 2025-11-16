@@ -134,7 +134,7 @@ export class APIEnhancer {
       startTime: Date.now()
     };
 
-    app.use((req: Request, res: Response, next: NextFunction) => {
+    app.use((_req: Request, res: Response, next: NextFunction) => {
       const start = Date.now();
       metrics.requests++;
 
@@ -156,7 +156,7 @@ export class APIEnhancer {
     });
 
     // Add metrics endpoint
-    app.get('/api/metrics', (req: Request, res: Response) => {
+    app.get('/api/metrics', (_req: Request, res: Response) => {
       const avgResponseTime = metrics.responseTimes.length > 0 
         ? metrics.responseTimes.reduce((a, b) => a + b, 0) / metrics.responseTimes.length 
         : 0;
@@ -210,7 +210,7 @@ export class APIEnhancer {
       res.setHeader('X-RateLimit-Remaining', Math.max(0, this.config.rateLimitMax! - (current?.count || 0)).toString());
       res.setHeader('X-RateLimit-Reset', new Date(current?.resetTime || now).toISOString());
 
-      next();
+      return next();
     });
   }
 
@@ -262,7 +262,7 @@ export class APIEnhancer {
     });
 
     // Global error handler
-    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
       console.error('❌ Server Error:', err.stack);
       console.error('❌ Error details:', {
         name: err.name,
@@ -304,7 +304,7 @@ export class APIEnhancer {
       }
 
       // Don't send error details in production
-      const errorDetails = process.env.NODE_ENV === 'development' ? {
+      const errorDetails = process.env['NODE_ENV'] === 'development' ? {
         message: err.message,
         stack: err.stack
       } : undefined;
@@ -327,7 +327,7 @@ export class APIEnhancer {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
-      environment: process.env.NODE_ENV || 'development'
+      environment: process.env['NODE_ENV'] || 'development'
     };
   }
 }

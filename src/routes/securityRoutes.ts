@@ -11,7 +11,7 @@ const router = express.Router();
  * @desc Get security status and statistics
  * @access Admin only
  */
-router.get('/status', validateAPIKey, requireAdmin, (req, res) => {
+router.get('/status', validateAPIKey, requireAdmin, (_req, res) => {
   try {
     const securityStats = advancedSecurity.getSecurityStats();
     const performanceStats = performanceMonitor.getSummary();
@@ -83,7 +83,7 @@ router.post('/block-ip', validateAPIKey, requireAdmin, (req, res) => {
     
     advancedSecurity.manualBlockIP(ip, reason);
     
-    res.json({
+    return res.json({
       success: true,
       message: `IP ${ip} has been blocked`,
       data: {
@@ -93,7 +93,7 @@ router.post('/block-ip', validateAPIKey, requireAdmin, (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to block IP',
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -119,7 +119,7 @@ router.post('/unblock-ip', validateAPIKey, requireAdmin, (req, res) => {
     
     advancedSecurity.manualUnblockIP(ip);
     
-    res.json({
+    return res.json({
       success: true,
       message: `IP ${ip} has been unblocked`,
       data: {
@@ -128,7 +128,7 @@ router.post('/unblock-ip', validateAPIKey, requireAdmin, (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to unblock IP',
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -141,7 +141,7 @@ router.post('/unblock-ip', validateAPIKey, requireAdmin, (req, res) => {
  * @desc Get list of currently blocked IPs
  * @access Admin only
  */
-router.get('/blocked-ips', validateAPIKey, requireAdmin, (req, res) => {
+router.get('/blocked-ips', validateAPIKey, requireAdmin, (_req, res) => {
   try {
     const securityData = advancedSecurity.exportSecurityData();
     
@@ -231,12 +231,12 @@ router.post('/export', validateAPIKey, requireAdmin, (req, res) => {
       return res.send(csvData);
     }
     
-    res.json({
+    return res.json({
       success: true,
       data: securityData
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to export security data',
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -249,16 +249,16 @@ router.post('/export', validateAPIKey, requireAdmin, (req, res) => {
  * @desc Get current security configuration
  * @access Admin only
  */
-router.get('/config', validateAPIKey, requireAdmin, (req, res) => {
+router.get('/config', validateAPIKey, requireAdmin, (_req, res) => {
   try {
     const config = {
-      apiKeyEnabled: process.env.API_KEY_ENABLED === 'true',
-      rateLimitMax: process.env.RATE_LIMIT_MAX_REQUESTS || '50',
-      rateLimitWindow: process.env.RATE_LIMIT_WINDOW_MS || '900000',
-      jwtEnabled: !!process.env.JWT_SECRET,
-      corsOrigins: process.env.CORS_ORIGIN?.split(',') || [],
-      maintenanceMode: process.env.MAINTENANCE_MODE === 'true',
-      environment: process.env.NODE_ENV || 'development',
+      apiKeyEnabled: process.env['API_KEY_ENABLED'] === 'true',
+      rateLimitMax: process.env['RATE_LIMIT_MAX_REQUESTS'] || '50',
+      rateLimitWindow: process.env['RATE_LIMIT_WINDOW_MS'] || '900000',
+      jwtEnabled: !!process.env['JWT_SECRET'],
+      corsOrigins: process.env['CORS_ORIGIN']?.split(',') || [],
+      maintenanceMode: process.env['MAINTENANCE_MODE'] === 'true',
+      environment: process.env['NODE_ENV'] || 'development',
       timestamp: new Date().toISOString()
     };
     

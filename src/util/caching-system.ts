@@ -47,8 +47,8 @@ class AdvancedCache {
     
     // Include API key type in cache key for user-specific caching
     const apiKey = (Array.isArray(req.headers['x-api-key']) ? req.headers['x-api-key'][0] : req.headers['x-api-key']);
-    const keyType = apiKey === process.env.API_KEY_ADMIN ? 'admin' : 
-                   apiKey === process.env.API_KEY_FRONTEND ? 'frontend' : 'public';
+    const keyType = apiKey === process.env['API_KEY_ADMIN'] ? 'admin' : 
+                   apiKey === process.env['API_KEY_FRONTEND'] ? 'frontend' : 'public';
     
     return `${keyType}:${baseKey}${queryString}`;
   }
@@ -244,7 +244,6 @@ class AdvancedCache {
   // Periodic cleanup of expired entries
   private startCleanup(): void {
     setInterval(() => {
-      const now = Date.now();
       let cleaned = 0;
 
       for (const [key, entry] of this.cache.entries()) {
@@ -309,7 +308,7 @@ class AdvancedCache {
     
     for (const endpoint of commonEndpoints) {
       try {
-        const response = await fetch(`${process.env.API_URL || 'https://api.packmovego.com'}${endpoint}`);
+        const response = await fetch(`${process.env['API_URL'] || 'https://api.packmovego.com'}${endpoint}`);
         if (response.ok) {
           const data = await response.json();
           this.set(`public:GET:${endpoint}`, data, this.config.defaultTTL, 'application/json');
@@ -330,7 +329,7 @@ export const advancedCache = new AdvancedCache();
 export const cacheMiddleware = (ttl?: number) => advancedCache.middleware(ttl);
 
 // Auto warm-up in production
-if (process.env.NODE_ENV === 'production') {
+if (process.env['NODE_ENV'] === 'production') {
   // Delay warm-up to let server start first
   setTimeout(() => {
     advancedCache.warmUp().catch(console.error);

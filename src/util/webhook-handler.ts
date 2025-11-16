@@ -18,7 +18,7 @@ class WebhookHandler {
   
   constructor() {
     this.config = {
-      secret: process.env.WEBHOOK_SECRET || 'default-webhook-secret',
+      secret: process.env['WEBHOOK_SECRET'] || 'default-webhook-secret',
       allowedEvents: [
         'deployment.started',
         'deployment.completed', 
@@ -29,7 +29,7 @@ class WebhookHandler {
         'backup.completed',
         'rate.limit.exceeded'
       ],
-      verifySignature: process.env.NODE_ENV === 'production'
+      verifySignature: process.env['NODE_ENV'] === 'production'
     };
   }
 
@@ -81,7 +81,7 @@ class WebhookHandler {
       await this.processWebhook(webhookData);
       
       console.log(`✅ Webhook processed: ${webhookData.event}`);
-      res.json({
+      return res.json({
         success: true,
         event: webhookData.event,
         processed: true,
@@ -90,7 +90,7 @@ class WebhookHandler {
 
     } catch (error) {
       console.error('❌ Webhook processing failed:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Webhook processing failed',
         timestamp: new Date().toISOString()

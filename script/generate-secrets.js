@@ -35,7 +35,6 @@ const envExample = `# PackMoveGO API Environment Variables
 
 # Database Configuration
 MONGODB_URI=your_mongodb_connection_string
-DATABASE_URL=your_database_url
 
 # JWT Configuration
 JWT_SECRET=${secrets.JWT_SECRET}

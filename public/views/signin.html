@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - PackMoveGO</title>
+    <style>
+        * {
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+        }
+        body {
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+            background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+            min-height:100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:20px;
+        }
+        .container {
+            background:white;
+            border-radius:16px;
+            box-shadow:0 20px 60px rgba(0,0,0,0.3);
+            max-width:440px;
+            width:100%;
+            padding:40px;
+        }
+        .logo {
+            text-align:center;
+            margin-bottom:30px;
+        }
+        .logo h1 {
+            color:#667eea;
+            font-size:32px;
+            font-weight:700;
+        }
+        h2 {
+            text-align:center;
+            color:#333;
+            margin-bottom:10px;
+            font-size:24px;
+        }
+        .subtitle {
+            text-align:center;
+            color:#666;
+            margin-bottom:30px;
+            font-size:14px;
+        }
+        .subtitle a {
+            color:#667eea;
+            text-decoration:none;
+            font-weight:600;
+        }
+        .subtitle a:hover {
+            text-decoration:underline;
+        }
+        .form-group {
+            margin-bottom:20px;
+        }
+        label {
+            display:block;
+            color:#333;
+            font-weight:600;
+            margin-bottom:8px;
+            font-size:14px;
+        }
+        input {
+            width:100%;
+            padding:12px 16px;
+            border:2px solid #e0e0e0;
+            border-radius:8px;
+            font-size:16px;
+            transition:border-color 0.3s;
+        }
+        input:focus {
+            outline:none;
+            border-color:#667eea;
+        }
+        .helper-text {
+            font-size:12px;
+            color:#666;
+            margin-top:6px;
+        }
+        .btn {
+            width:100%;
+            padding:14px;
+            background:#667eea;
+            color:white;
+            border:none;
+            border-radius:8px;
+            font-size:16px;
+            font-weight:600;
+            cursor:pointer;
+            transition:background 0.3s;
+        }
+        .btn:hover {
+            background:#5568d3;
+        }
+        .btn:disabled {
+            background:#ccc;
+            cursor:not-allowed;
+        }
+        .error {
+            background:#fee;
+            border:1px solid #fcc;
+            color:#c33;
+            padding:12px;
+            border-radius:8px;
+            margin-bottom:20px;
+            font-size:14px;
+        }
+        .success {
+            background:#efe;
+            border:1px solid#cfc;
+            color:#3c3;
+            padding:12px;
+            border-radius:8px;
+            margin-bottom:20px;
+            font-size:14px;
+        }
+        .loading {
+            display:none;
+            text-align:center;
+            padding:20px;
+        }
+        .loading.active {
+            display:block;
+        }
+        .spinner {
+            border:3px solid #f3f3f3;
+            border-top:3px solid #667eea;
+            border-radius:50%;
+            width:40px;
+            height:40px;
+            animation:spin 1s linear infinite;
+            margin:0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform:rotate(0deg); }
+            100% { transform:rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>📦 PackMoveGO</h1>
+        </div>
+        
+        <h2>Sign in with SMS</h2>
+        <p class="subtitle">
+            Or <a href="/signup">create a new account</a>
+        </p>
+        
+        <div id="errorMessage" class="error" style="display:none;"></div>
+        <div id="successMessage" class="success" style="display:none;"></div>
+        
+        <div id="loadingIndicator" class="loading">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+        
+        <form id="signinForm">
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input 
+                    type="tel" 
+                    id="phone" 
+                    name="phone" 
+                    placeholder="(555) 555-5555"
+                    required
+                    maxlength="14"
+                >
+                <div class="helper-text">Enter your US phone number (10 digits)</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    placeholder="Password"
+                >
+                <div class="helper-text">Required for new users, optional for existing users</div>
+            </div>
+            
+            <button type="submit" class="btn" id="submitBtn">Send verification code</button>
+        </form>
+    </div>
+
+    <script>
+        const API_BASE_URL=window.location.protocol+'//'+window.location.host;
+        const API_KEY='pmg_frontend_live_sk_a7f8e2d9c1b4x6m9p3q8r5t2w7y1z4a6';
+        
+        const form=document.getElementById('signinForm');
+        const errorMessage=document.getElementById('errorMessage');
+        const successMessage=document.getElementById('successMessage');
+        const loadingIndicator=document.getElementById('loadingIndicator');
+        const submitBtn=document.getElementById('submitBtn');
+        const phoneInput=document.getElementById('phone');
+        
+        // Format phone number as (XXX) XXX-XXXX
+        function formatPhoneNumber(value){
+            // Remove all non-digit characters
+            const digits=value.replace(/\D/g,'');
+            
+            // Limit to 10 digits
+            const limitedDigits=digits.slice(0,10);
+            
+            // Format based on length
+            if(limitedDigits.length===0){
+                return '';
+            }else if(limitedDigits.length<=3){
+                return `(${limitedDigits}`;
+            }else if(limitedDigits.length<=6){
+                return `(${limitedDigits.slice(0,3)}) ${limitedDigits.slice(3)}`;
+            }else{
+                return `(${limitedDigits.slice(0,3)}) ${limitedDigits.slice(3,6)}-${limitedDigits.slice(6)}`;
+            }
+        }
+        
+        // Handle phone input formatting
+        phoneInput.addEventListener('input',(e)=>{
+            const formatted=formatPhoneNumber(e.target.value);
+            e.target.value=formatted;
+        });
+        
+        // Prevent non-digit characters on keypress
+        phoneInput.addEventListener('keypress',(e)=>{
+            const char=String.fromCharCode(e.which);
+            if(!/[0-9]/.test(char)){
+                e.preventDefault();
+            }
+        });
+        
+        // Get raw phone number (10 digits only) for API
+        function getRawPhoneNumber(formattedPhone){
+            return formattedPhone.replace(/\D/g,'');
+        }
+        
+        function showError(message){
+            errorMessage.textContent=message;
+            errorMessage.style.display='block';
+            successMessage.style.display='none';
+        }
+        
+        function showSuccess(message){
+            successMessage.textContent=message;
+            successMessage.style.display='block';
+            errorMessage.style.display='none';
+        }
+        
+        function hideMessages(){
+            errorMessage.style.display='none';
+            successMessage.style.display='none';
+        }
+        
+        form.addEventListener('submit',async (e)=>{
+            e.preventDefault();
+            
+            const formattedPhone=phoneInput.value.trim();
+            const rawPhone=getRawPhoneNumber(formattedPhone);
+            const password=document.getElementById('password').value;
+            
+            // Validate: should have exactly 10 digits
+            if(rawPhone.length!==10){
+                showError('Please enter a valid 10-digit phone number');
+                return;
+            }
+            
+            hideMessages();
+            loadingIndicator.classList.add('active');
+            submitBtn.disabled=true;
+            
+            try{
+                // Use request-sms endpoint for SMS-based signin
+                const response=await fetch(`${API_BASE_URL}/auth/request-sms`,{
+                    method:'POST',
+                    headers:{
+                        'Content-Type':'application/json',
+                        'x-api-key':API_KEY
+                    },
+                    body:JSON.stringify({
+                        phone:rawPhone,
+                        username:'PackMoveGOUser'
+                    })
+                });
+                
+                // Check if response is ok before parsing JSON
+                let data;
+                try{
+                    data=await response.json();
+                }catch(parseError){
+                    console.error('Failed to parse response:',parseError);
+                    showError('Server error: Invalid response. Please try again.');
+                    return;
+                }
+                
+                if(response.ok && data.success){
+                    showSuccess(data.message || 'Verification code sent! Check your phone.');
+                    
+                    // Show verification code prompt
+                    setTimeout(()=>{
+                        const code=prompt('Enter the 6-digit verification code sent to your phone:');
+                        if(code){
+                            verifyCode(rawPhone,code);
+                        }
+                    },1000);
+                }else{
+                    // If phone not found and password provided, try password signin
+                    if(password && (data.message || '').includes('not found')){
+                        tryPasswordSignin(rawPhone,password);
+                    }else{
+                        const errorMsg=data.message || data.error || 'Failed to send verification code';
+                        showError(errorMsg);
+                    }
+                }
+            }catch(error){
+                console.error('Error:',error);
+                showError('Network error. Please check your connection and try again.');
+            }finally{
+                loadingIndicator.classList.remove('active');
+                submitBtn.disabled=false;
+            }
+        });
+        
+        async function tryPasswordSignin(phone,password){
+            try{
+                const response=await fetch(`${API_BASE_URL}/auth/sign-in`,{
+                    method:'POST',
+                    headers:{
+                        'Content-Type':'application/json',
+                        'x-api-key':API_KEY
+                    },
+                    body:JSON.stringify({
+                        email:phone,
+                        password:password
+                    })
+                });
+                
+                const data=await response.json();
+                
+                if(response.ok && data.success){
+                    showSuccess('Sign in successful! Redirecting...');
+                    
+                    // Store JWT token in cache using multiple formats for compatibility
+                    if(data.data && data.data.token){
+                        const token=data.data.token;
+                        const user=data.data.user || {};
+                        
+                        // Calculate expiration (default 24 hours if not provided)
+                        const expiresIn=data.data.expiresIn || 86400000; // 24 hours in ms
+                        const expiresAt=Date.now() + expiresIn;
+                        
+                        // Store in JWTAuthManager format (packmovego_jwt_token)
+                        const jwtTokenData={
+                            token: token,
+                            expiresAt: expiresAt,
+                            user: user
+                        };
+                        localStorage.setItem('packmovego_jwt_token', JSON.stringify(jwtTokenData));
+                        
+                        // Store in auth.ts format (pmg_auth_token) for compatibility
+                        localStorage.setItem('pmg_auth_token', token);
+                        
+                        // Also store user data
+                        if(user){
+                            localStorage.setItem('pmg_user_data', JSON.stringify(user));
+                        }
+                        
+                        // Legacy format for backward compatibility
+                        localStorage.setItem('token', token);
+                        
+                        console.log('✅ [SIGNIN] JWT token stored in cache');
+                    }
+                    
+                    // Redirect to dashboard - prioritize API redirectUrl, use http for localhost
+                    let redirectUrl=data.data?.redirectUrl || 'http://localhost:5002';
+                    
+                    // Ensure localhost uses http (not https)
+                    if(redirectUrl.includes('localhost:5002')){
+                        redirectUrl=redirectUrl.replace('https://', 'http://');
+                    }
+                    
+                    console.log('🔀 [SIGNIN] Password signin successful, redirecting to:', redirectUrl);
+                    console.log('🔀 [SIGNIN] API redirectUrl:', data.data?.redirectUrl);
+                    
+                    setTimeout(()=>{
+                        window.location.href=redirectUrl;
+                    },1500);
+                }else{
+                    showError(data.message || 'Invalid credentials');
+                }
+            }catch(error){
+                console.error('Password signin error:',error);
+                showError('Failed to sign in with password');
+            }
+        }
+        
+        async function verifyCode(phone,code){
+            hideMessages();
+            loadingIndicator.classList.add('active');
+            
+            try{
+                const response=await fetch(`${API_BASE_URL}/auth/verify`,{
+                    method:'POST',
+                    headers:{
+                        'Content-Type':'application/json',
+                        'x-api-key':API_KEY
+                    },
+                    body:JSON.stringify({
+                        phone:phone,
+                        code:code
+                    })
+                });
+                
+                let data;
+                try{
+                    data=await response.json();
+                }catch(parseError){
+                    console.error('Failed to parse response:',parseError);
+                    showError('Server error: Invalid response. Please try again.');
+                    return;
+                }
+                
+                if(response.ok && data.success){
+                    showSuccess('Verification successful! Redirecting to dashboard...');
+                    
+                    // Store JWT token in cache using multiple formats for compatibility
+                    const token=data.data?.accessToken || data.data?.token;
+                    const user=data.data?.user || {};
+                    
+                    if(token){
+                        // Calculate expiration (default 24 hours if not provided)
+                        const expiresIn=data.data?.expiresIn || 86400000; // 24 hours in ms
+                        const expiresAt=Date.now() + expiresIn;
+                        
+                        // Store in JWTAuthManager format (packmovego_jwt_token)
+                        const jwtTokenData={
+                            token: token,
+                            expiresAt: expiresAt,
+                            user: user
+                        };
+                        localStorage.setItem('packmovego_jwt_token', JSON.stringify(jwtTokenData));
+                        
+                        // Store in auth.ts format (pmg_auth_token) for compatibility
+                        localStorage.setItem('pmg_auth_token', token);
+                        
+                        // Also store user data
+                        if(user){
+                            localStorage.setItem('pmg_user_data', JSON.stringify(user));
+                        }
+                        
+                        // Legacy formats for backward compatibility
+                        localStorage.setItem('accessToken', token);
+                        if(data.data?.refreshToken){
+                            localStorage.setItem('refreshToken', data.data.refreshToken);
+                        }
+                        
+                        console.log('✅ [SIGNIN] JWT token stored in cache');
+                    }
+                    
+                    // Redirect to dashboard - prioritize API redirectUrl, use http for localhost
+                    let redirectUrl=data.data?.redirectUrl || 'http://localhost:5002';
+                    
+                    // Ensure localhost uses http (not https)
+                    if(redirectUrl.includes('localhost:5002')){
+                        redirectUrl=redirectUrl.replace('https://', 'http://');
+                    }
+                    
+                    console.log('🔀 [SIGNIN] SMS Verification successful, redirecting to:', redirectUrl);
+                    console.log('🔀 [SIGNIN] API redirectUrl:', data.data?.redirectUrl);
+                    
+                    setTimeout(()=>{
+                        window.location.href=redirectUrl;
+                    },1500);
+                }else{
+                    const errorMsg=data.message || data.error || 'Invalid verification code';
+                    showError(errorMsg);
+                }
+            }catch(error){
+                console.error('Verification error:',error);
+                showError('Failed to verify code. Please try again.');
+            }finally{
+                loadingIndicator.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+</html>
+

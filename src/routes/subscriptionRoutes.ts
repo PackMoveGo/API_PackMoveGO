@@ -4,14 +4,14 @@ import {createSubscription,getSubscriptions} from '../controllers/subscriptionCo
 
 const subscriptionRouter=Router();
 
-subscriptionRouter.get('/',(req,res)=>res.send({title:'Get all subscriptions'}));
-subscriptionRouter.get('/:id',(req,res)=>res.send({title:'Get subscription details'}));
+subscriptionRouter.get('/',(_req,res)=>res.send({title:'Get all subscriptions'}));
+subscriptionRouter.get('/:id',(_req,res)=>res.send({title:'Get subscription details'}));
 subscriptionRouter.post('/',requireAuth,createSubscription);
-subscriptionRouter.put('/:id',(req,res)=>res.send({title:'UPDATE subscription'}));
-subscriptionRouter.delete('/:id',(req,res)=>res.send({title:'DELETE subscription'}));
+subscriptionRouter.put('/:id',(_req,res)=>res.send({title:'UPDATE subscription'}));
+subscriptionRouter.delete('/:id',(_req,res)=>res.send({title:'DELETE subscription'}));
 subscriptionRouter.get('/user/:id',requireAuth,getSubscriptions);
-subscriptionRouter.put('/:id/cancel',(req,res)=>res.send({title:'CANCEL subscription'}));
-subscriptionRouter.get('/upcoming-renewals',(req,res)=>res.send({title:'GET upcoming renewals'}));
+subscriptionRouter.put('/:id/cancel',(_req,res)=>res.send({title:'CANCEL subscription'}));
+subscriptionRouter.get('/upcoming-renewals',(_req,res)=>res.send({title:'GET upcoming renewals'}));
 
 export default subscriptionRouter;
 

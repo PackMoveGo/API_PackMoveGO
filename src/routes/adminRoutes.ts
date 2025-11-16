@@ -7,17 +7,18 @@ import { compressionManager } from '../util/compression-middleware';
 const router = express.Router();
 
 // Admin authentication middleware
-const requireAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const requireAdmin = (req: express.Request, res: express.Response, next: express.NextFunction): void => {
   const apiKey = (Array.isArray(req.headers['x-api-key']) ? req.headers['x-api-key'][0] : req.headers['x-api-key']) || 
                  req.headers['authorization']?.replace('Bearer ', '');
   
-  if (apiKey !== process.env.API_KEY_ADMIN) {
-    return res.status(403).json({
+  if (apiKey !== process.env['API_KEY_ADMIN']) {
+    res.status(403).json({
       success: false,
       error: 'Admin access required',
       message: 'This endpoint requires admin API key',
       timestamp: new Date().toISOString()
     });
+    return;
   }
   next();
 };
@@ -26,13 +27,13 @@ const requireAdmin = (req: express.Request, res: express.Response, next: express
 router.use(requireAdmin);
 
 // === SYSTEM OVERVIEW ===
-router.get('/admin/overview', (req, res) => {
+router.get('/admin/overview', (_req, res) => {
   try {
     const overview = {
       systemInfo: {
         uptime: process.uptime(),
         nodeVersion: process.version,
-        environment: process.env.NODE_ENV,
+        environment: process.env['NODE_ENV'],
         timestamp: new Date().toISOString()
       },
       performance: performanceMonitor.getRealTimeStats(),
@@ -58,7 +59,7 @@ router.get('/admin/overview', (req, res) => {
 });
 
 // === CACHE MANAGEMENT ===
-router.delete('/admin/cache/clear', (req, res) => {
+router.delete('/admin/cache/clear', (_req, res) => {
   try {
     advancedCache.clear();
     res.json({
@@ -108,7 +109,7 @@ router.post('/admin/security/block-ip', (req, res) => {
     }
 
     advancedSecurity.manualBlockIP(ip, reason || 'Manually blocked by admin');
-    res.json({
+    return res.json({
       success: true,
       message: `IP ${ip} has been blocked`,
       ip,
@@ -116,7 +117,7 @@ router.post('/admin/security/block-ip', (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to block IP',
       timestamp: new Date().toISOString()
@@ -136,14 +137,14 @@ router.post('/admin/security/unblock-ip', (req, res) => {
     }
 
     advancedSecurity.manualUnblockIP(ip);
-    res.json({
+    return res.json({
       success: true,
       message: `IP ${ip} has been unblocked`,
       ip,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to unblock IP',
       timestamp: new Date().toISOString()
@@ -223,7 +224,7 @@ router.get('/admin/backup/download/:filename', async (req, res) => {
 */
 
 // === SYSTEM CONTROLS ===
-router.post('/admin/system/restart', (req, res) => {
+router.post('/admin/system/restart', (_req, res) => {
   res.json({
     success: true,
     message: 'System restart initiated',
@@ -237,7 +238,7 @@ router.post('/admin/system/restart', (req, res) => {
   }, 1000);
 });
 
-router.get('/admin/system/logs', (req, res) => {
+router.get('/admin/system/logs', (_req, res) => {
   try {
     const logs = {
       performance: performanceMonitor.getSummary(),

@@ -168,7 +168,7 @@ Keep responses concise but informative.`;
   private parseAIResponse(response: string, query: MovingQuery): AIResponse {
     // Extract estimated price if mentioned
     const priceMatch = response.match(/\$(\d+(?:,\d{3})*(?:\.\d{2})?)/);
-    const estimatedPrice = priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '')) : undefined;
+    const estimatedPrice = priceMatch && priceMatch[1] ? parseFloat(priceMatch[1].replace(/,/g, '')) : undefined;
 
     // Generate suggestions based on response
     const suggestions = this.generateSuggestions(query, response);
@@ -185,7 +185,7 @@ Keep responses concise but informative.`;
     };
   }
 
-  private generateSuggestions(query: MovingQuery, response: string): string[] {
+  private generateSuggestions(query: MovingQuery, _response: string): string[] {
     const suggestions: string[] = [];
 
     // Add context-based suggestions
@@ -232,14 +232,14 @@ Keep responses concise but informative.`;
     return nextSteps.slice(0, 3); // Limit to 3 next steps
   }
 
-  private getFallbackResponse(query: MovingQuery): AIResponse {
+  private getFallbackResponse(_query: MovingQuery): AIResponse {
     const fallbackAnswers = [
       "I'd be happy to help you with your moving questions! For the most accurate information and pricing, I recommend contacting our customer service team directly.",
       "Thank you for your question about moving services. Our team can provide detailed information and accurate quotes based on your specific needs.",
       "I can help with general moving information, but for specific pricing and detailed quotes, please reach out to our customer service team."
     ];
 
-    const randomAnswer = fallbackAnswers[Math.floor(Math.random() * fallbackAnswers.length)];
+    const randomAnswer = fallbackAnswers[Math.floor(Math.random() * fallbackAnswers.length)] || 'I apologize, but I cannot provide a specific answer at this time.';
 
     return {
       answer: randomAnswer,

@@ -111,12 +111,7 @@ class OAuthService {
   }
 
   private async exchangeFacebookCode(code: string): Promise<any> {
-    const response = await fetch('https://graph.facebook.com/v18.0/oauth/access_token', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    // Build Facebook OAuth URL
 
     const url = new URL('https://graph.facebook.com/v18.0/oauth/access_token');
     url.searchParams.append('client_id', this.facebookAppId);
@@ -200,7 +195,7 @@ class OAuthService {
     }
 
     // Create new user
-    const newUser = new User({
+    const newUser = new (User as any)({
       email: userInfo.email,
       firstName: userInfo.firstName,
       lastName: userInfo.lastName,
@@ -273,7 +268,7 @@ class OAuthService {
         throw new Error('Invalid refresh token');
       }
 
-      const user = await User.findById(decoded.userId);
+      const user = await (User as any).findById(decoded.userId);
       if (!user || !user.isActive) {
         throw new Error('User not found or inactive');
       }
@@ -331,12 +326,12 @@ export const handleFacebookAuth = async (req: Request, res: Response) => {
   }
 };
 
-export const getGoogleAuthUrl = (req: Request, res: Response) => {
+export const getGoogleAuthUrl = (_req: Request, res: Response) => {
   const authUrl = oauthService.getGoogleAuthUrl();
   return sendSuccess(res, { authUrl }, 'Google auth URL generated');
 };
 
-export const getFacebookAuthUrl = (req: Request, res: Response) => {
+export const getFacebookAuthUrl = (_req: Request, res: Response) => {
   const authUrl = oauthService.getFacebookAuthUrl();
   return sendSuccess(res, { authUrl }, 'Facebook auth URL generated');
 };

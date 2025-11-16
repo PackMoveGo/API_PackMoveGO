@@ -370,7 +370,7 @@ class BookingController {
   }
 
   // Get available movers
-  async getAvailableMovers(req: Request, res: Response): Promise<void> {
+  async getAvailableMovers(_req: Request, res: Response): Promise<void> {
     try {
       const data = this.loadData();
       const availableMovers = data.movers.filter((mover: Mover) => mover.isAvailable);

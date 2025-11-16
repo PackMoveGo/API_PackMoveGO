@@ -3,7 +3,6 @@ import { promisify } from 'util';
 
 // DNS lookup functions
 const lookup = promisify(dns.lookup);
-const resolve4 = promisify(dns.resolve4);
 
 /**
  * Private Network Configuration
@@ -56,20 +55,20 @@ class PrivateNetworkManager {
       isPrivateNetworkEnabled: this.isOnRenderPrivateNetwork(),
       internalHostname: this.getInternalHostname(),
       discoveryHostname: this.getDiscoveryHostname(),
-      region: process.env.RENDER_REGION || 'oregon',
-      workspace: process.env.RENDER_WORKSPACE || 'default',
-      environment: process.env.RENDER_ENVIRONMENT || 'production',
+      region: process.env['RENDER_REGION'] || 'oregon',
+      workspace: process.env['RENDER_WORKSPACE'] || 'default',
+      environment: process.env['RENDER_ENVIRONMENT'] || 'production',
       restrictedPorts: [10000, 18012, 18013, 19099],
       maxOpenPorts: 75
     };
 
     this.privateLinkConfig = {
-      enabled: process.env.PRIVATE_LINK_ENABLED === 'true',
-      vpcEndpointId: process.env.VPC_ENDPOINT_ID,
-      serviceEndpoint: process.env.PRIVATE_LINK_SERVICE_ENDPOINT,
-      dnsName: process.env.PRIVATE_LINK_DNS_NAME,
-      availabilityZones: process.env.AVAILABILITY_ZONES?.split(','),
-      securityGroups: process.env.SECURITY_GROUPS?.split(',')
+      enabled: process.env['PRIVATE_LINK_ENABLED'] === 'true',
+      vpcEndpointId: process.env['VPC_ENDPOINT_ID'],
+      serviceEndpoint: process.env['PRIVATE_LINK_SERVICE_ENDPOINT'],
+      dnsName: process.env['PRIVATE_LINK_DNS_NAME'],
+      availabilityZones: process.env['AVAILABILITY_ZONES']?.split(','),
+      securityGroups: process.env['SECURITY_GROUPS']?.split(',')
     };
 
     this.initializeServiceRegistry();
@@ -80,9 +79,9 @@ class PrivateNetworkManager {
    */
   private isOnRenderPrivateNetwork(): boolean {
     return !!(
-      process.env.RENDER && 
-      process.env.RENDER_SERVICE_NAME &&
-      process.env.RENDER_DISCOVERY_SERVICE
+      process.env['RENDER'] && 
+      process.env['RENDER_SERVICE_NAME'] &&
+      process.env['RENDER_DISCOVERY_SERVICE']
     );
   }
 
@@ -90,19 +89,19 @@ class PrivateNetworkManager {
    * Get internal hostname for this service
    */
   private getInternalHostname(): string {
-    if (process.env.RENDER_SERVICE_NAME) {
+    if (process.env['RENDER_SERVICE_NAME']) {
       // Render automatically assigns internal hostnames
-      return process.env.RENDER_SERVICE_NAME;
+      return process.env['RENDER_SERVICE_NAME'];
     }
-    return process.env.INTERNAL_HOSTNAME || 'localhost';
+    return process.env['INTERNAL_HOSTNAME'] || 'localhost';
   }
 
   /**
    * Get discovery hostname for this service
    */
   private getDiscoveryHostname(): string {
-    if (process.env.RENDER_DISCOVERY_SERVICE) {
-      return process.env.RENDER_DISCOVERY_SERVICE;
+    if (process.env['RENDER_DISCOVERY_SERVICE']) {
+      return process.env['RENDER_DISCOVERY_SERVICE'];
     }
     const internalHostname = this.getInternalHostname();
     return `${internalHostname}-discovery`;
@@ -113,10 +112,10 @@ class PrivateNetworkManager {
    */
   private initializeServiceRegistry(): void {
     const currentService: ServiceInfo = {
-      name: process.env.RENDER_SERVICE_NAME || 'api-service',
-      internalAddress: `${this.config.internalHostname}:${process.env.PORT || 3000}`,
+      name: process.env['RENDER_SERVICE_NAME'] || 'api-service',
+      internalAddress: `${this.config.internalHostname}:${process.env['PORT'] || 3000}`,
       discoveryAddress: this.config.discoveryHostname,
-      port: parseInt(process.env.PORT || '3000', 10),
+      port: parseInt(process.env['PORT'] || '3000', 10),
       protocol: 'http',
       type: 'web',
       status: 'healthy',

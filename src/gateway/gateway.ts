@@ -3,11 +3,11 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
-import { log, consoleLogger } from '../util/console-logger';
+import { log } from '../util/console-logger';
 import { sessionLogger } from '../util/session-logger';
 import fs from 'fs';
 import https from 'https';
-import { securityMiddleware } from '../middlewares/security';
+// import { securityMiddleware } from '../middlewares/security'; // Unused - gateway has its own security
 
 // Load environment configuration
 import envLoader from '../../config/env';
@@ -52,11 +52,12 @@ app.use((req, res, next) => {
         redirect: redirectUrl,
         timestamp: new Date().toISOString()
       });
+      return;
     }
   } catch (_) {
     // Non-blocking on errors
   }
-  next();
+  return next();
 });
 
 // CORS configuration
@@ -304,7 +305,7 @@ app.use((req, res, next) => {
 });
 
 // Health check endpoint - Gateway's own status
-app.get('/v0/health', (req, res) => {
+app.get('/v0/health', (_req, res) => {
   res.status(200).json({
     status: 'ok',
     service: 'gateway',
@@ -317,7 +318,7 @@ app.get('/v0/health', (req, res) => {
 // Note: /health endpoint removed - it now proxies to Private API's /v0/health
 
 // API root endpoint
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.status(200).json({
     message: 'PackMoveGO Gateway Service',
     status: 'running',
@@ -337,18 +338,20 @@ app.get('/', (req, res) => {
 // The server will apply securityMiddleware when it receives proxied requests
 // app.use(securityMiddleware);
 
-// Proxy configuration
+// Proxy configuration (unused - options are inline in createProxyMiddleware below)
+// @ts-ignore - proxyOptions kept for documentation/reference
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const proxyOptions = {
   target: PRIVATE_API_URL,
   changeOrigin: true,
   // Allow self-signed certs when proxying to local HTTPS API
   secure: false,
   // Preserve the full path including the mount point
-  pathRewrite: (path: string, req: any) => {
+  pathRewrite: (path: string, _req: any) => {
     // Don't rewrite, keep the original path
     return path;
   },
-  onProxyReq: (proxyReq: any, req: any, res: any) => {
+  onProxyReq: (proxyReq: any, req: any, _res: any) => {
     // Forward the API key from the original request
     const apiKey=req.headers['x-api-key'] || req.headers['authorization'];
     if(apiKey){
@@ -400,15 +403,36 @@ const proxyOptions = {
     });
   },
   onError: (err: any, req: any, res: any) => {
+    const errnoError = err as NodeJS.ErrnoException;
+    const errorCode = errnoError.code || 'UNKNOWN';
+    
     log.error('gateway', 'Proxy error', {
       error: err.message,
+      code: errorCode,
       path: req.path,
       target: PRIVATE_API_URL
     });
     
-    res.status(502).json({
+    // Provide more specific error messages based on error code
+    let errorMessage = 'Unable to connect to private API service';
+    let statusCode = 502;
+    
+    if (errorCode === 'ECONNREFUSED') {
+      errorMessage = `Backend server is not running or not accessible at ${PRIVATE_API_URL}. Please ensure the backend service is started.`;
+      statusCode = 503;
+    } else if (errorCode === 'ETIMEDOUT') {
+      errorMessage = `Connection to backend server at ${PRIVATE_API_URL} timed out. The server may be overloaded or unreachable.`;
+      statusCode = 503;
+    } else if (errorCode === 'ENOTFOUND') {
+      errorMessage = `Backend server hostname not found: ${PRIVATE_API_URL}. Please check your configuration.`;
+      statusCode = 502;
+    }
+    
+    res.status(statusCode).json({
       error: 'Gateway Error',
-      message: 'Unable to connect to private API service',
+      message: errorMessage,
+      code: errorCode,
+      target: PRIVATE_API_URL,
       timestamp: new Date().toISOString()
     });
   }
@@ -420,7 +444,7 @@ const proxy=createProxyMiddleware({
   changeOrigin: true,
   secure: false,
   on: {
-    proxyReq(proxyReq, req, res) {
+    proxyReq(proxyReq, req, _res) {
       console.log('🔄 Gateway - onProxyReq called for:', req.url);
       
       // Forward the API key
@@ -462,14 +486,34 @@ const proxy=createProxyMiddleware({
       });
       
       if(res && 'headersSent' in res && !res.headersSent){
-        const statusCode = errnoError.code === 'ECONNREFUSED' || errnoError.code === 'ETIMEDOUT' ? 503 : 502;
+        const errorCode = errnoError.code || 'UNKNOWN';
+        let errorMessage = 'Unable to connect to private API service';
+        let statusCode = 502;
+        
+        // Provide more specific error messages based on error code
+        if (errorCode === 'ECONNREFUSED') {
+          errorMessage = `Backend server is not running or not accessible at ${PRIVATE_API_URL}. Please ensure the backend service is started on port ${PRIVATE_API_URL.split(':').pop() || '3001'}.`;
+          statusCode = 503;
+        } else if (errorCode === 'ETIMEDOUT') {
+          errorMessage = `Connection to backend server at ${PRIVATE_API_URL} timed out. The server may be overloaded or unreachable.`;
+          statusCode = 503;
+        } else if (errorCode === 'ENOTFOUND') {
+          errorMessage = `Backend server hostname not found: ${PRIVATE_API_URL}. Please check your configuration.`;
+          statusCode = 502;
+        } else if (errorCode === 'ECONNREFUSED' || errorCode === 'ETIMEDOUT') {
+          statusCode = 503;
+        }
+        
         (res as any).status(statusCode).json({
           error: 'Gateway Error',
-          message: 'Unable to connect to private API service',
-          code: errnoError.code || 'UNKNOWN',
+          message: errorMessage,
+          code: errorCode,
           path: expressReq.path || req.url,
           target: PRIVATE_API_URL,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          ...(config.NODE_ENV === 'development' && {
+            hint: 'In development, ensure the backend server is running and accessible at the configured PRIVATE_API_URL'
+          })
         });
       }
     }
@@ -478,7 +522,7 @@ const proxy=createProxyMiddleware({
 
 // Apply the proxy to all matched routes
 console.log('🔧 Gateway - Installing proxy middleware');
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   if(config.NODE_ENV==='development') {
   console.log(`🔍 Gateway - Before proxy: ${req.method} ${req.path}`);
     console.log(`🔍 Gateway - Request origin: ${req.get('Origin') || 'None'}`);
@@ -508,7 +552,7 @@ app.use((req, res, next) => {
 app.use(proxy);
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   log.error('gateway', 'Unhandled error', {
     error: err.message,
     stack: err.stack,
@@ -541,6 +585,8 @@ const SSL_CERT=config.GATEWAY_SSL_CERT_PATH || config.SSL_CERT_PATH;
 
 // SSH Server setup
 const SSH_ENABLED = config.SSH_ENABLED;
+// @ts-ignore - sshServer is set but may not be used depending on configuration
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let sshServer: any = null;
 
 if (SSH_ENABLED) {

@@ -271,7 +271,7 @@ class ChatController {
   }
 
   // Get available agents
-  async getAvailableAgents(req: Request, res: Response): Promise<void> {
+  async getAvailableAgents(_req: Request, res: Response): Promise<void> {
     try {
       const data = this.loadData();
       const availableAgents = data.agents.filter((agent: any) => 
@@ -292,7 +292,7 @@ class ChatController {
   private generateAIResponse(message: string, aiResponses: any): string | null {
     const lowerMessage = message.toLowerCase();
     
-    for (const [key, response] of Object.entries(aiResponses)) {
+    for (const [_key, response] of Object.entries(aiResponses)) {
       const aiResponse = response as AIResponse;
       if (aiResponse.triggers.some(trigger => lowerMessage.includes(trigger))) {
         return aiResponse.response;

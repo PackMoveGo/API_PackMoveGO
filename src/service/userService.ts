@@ -16,13 +16,13 @@ export const createUser=async (userData: IUserData) => {
   try {
     console.log('Attempting to create user with email:', userData.email);
     
-    const existingUser=await (User.findOne as any)({email: userData.email});
+    const existingUser=await (User as any).findOne({email: userData.email});
     if(existingUser) {
       console.log('User already exists with email:', userData.email);
       throw new Error('Email already registered');
     }
 
-    const user=new User(userData);
+    const user=new (User as any)(userData);
     await user.save();
     console.log('User created successfully:', user._id);
     return user;
@@ -43,7 +43,7 @@ export const createUser=async (userData: IUserData) => {
 export const findUserByEmail=async (email: string) => {
   try {
     console.log('Searching for user with email:', email);
-    const user=await (User.findOne as any)({email});
+    const user=await (User as any).findOne({email});
     if(user) {
       console.log('User found:', user._id);
     }else{

@@ -1,6 +1,6 @@
 import User, { IUser } from '../models/userModel';
 import JWTUtils from '../util/jwt-utils';
-import OAuthService, { oauthService } from './oauthService';
+import { oauthService } from './oauthService';
 import crypto from 'crypto';
 import twilioService from './twilioService';
 
@@ -43,13 +43,13 @@ export class AuthService {
    */
   static async register(data: RegisterData): Promise<AuthResult> {
     // Check if user already exists
-    const existingUser=await User.findOne({ email: data.email.toLowerCase() });
+    const existingUser=await (User as any).findOne({ email: data.email.toLowerCase() });
     if(existingUser){
       throw new Error('User with this email already exists');
     }
 
     // Create new user
-    const user=new User({
+    const user=new (User as any)({
       firstName: data.firstName,
       lastName: data.lastName,
       email: data.email.toLowerCase(),
@@ -87,7 +87,7 @@ export class AuthService {
     console.log(`Email verification token: ${verificationToken}`);
 
     // Generate tokens
-    const { accessToken, refreshToken, tokenId } = JWTUtils.generateTokenPair({
+    const { accessToken, refreshToken } = JWTUtils.generateTokenPair({
       userId: (user._id as any).toString(),
       email: user.email,
       role: user.role
@@ -108,7 +108,7 @@ export class AuthService {
    */
   static async login(data: LoginData): Promise<AuthResult> {
     // Find user with password included
-    const user=await User.findOne({ email: data.email.toLowerCase() }).select('+password');
+    const user=await (User as any).findOne({ email: data.email.toLowerCase() }).select('+password');
     if(!user){
       throw new Error('Invalid credentials');
     }
@@ -156,7 +156,7 @@ export class AuthService {
     user.loginCount=(user.loginCount || 0)+1;
 
     // Generate tokens
-    const { accessToken, refreshToken, tokenId }=JWTUtils.generateTokenPair({
+    const { accessToken, refreshToken }=JWTUtils.generateTokenPair({
       userId: (user._id as any).toString(),
       email: user.email,
       role: user.role
@@ -188,20 +188,19 @@ export class AuthService {
   static async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
     try {
       // Verify refresh token
-      const decoded = JWTUtils.verifyRefreshToken(refreshToken);
+      const decoded = await JWTUtils.verifyRefreshToken(refreshToken);
       
       // Find user
       if (!decoded) {
         throw new Error('Invalid refresh token');
       }
-      const user = await User.findById(decoded.userId).select('+refreshTokens');
+      const user = await (User as any).findById(decoded.userId).select('+refreshTokens');
       if (!user) {
         throw new Error('User not found');
       }
 
       // Check if refresh token exists in user's tokens
-      const tokenHash = JWTUtils.hashToken(refreshToken);
-      const tokenExists = user.refreshTokens.some(token => 
+      const tokenExists = user.refreshTokens.some((token: string) => 
         JWTUtils.verifyTokenHash(refreshToken, token)
       );
 
@@ -226,14 +225,13 @@ export class AuthService {
    * Logout user and invalidate refresh token
    */
   static async logout(userId: string, refreshToken: string): Promise<void> {
-    const user = await User.findById(userId).select('+refreshTokens');
+    const user = await (User as any).findById(userId).select('+refreshTokens');
     if (!user) {
       throw new Error('User not found');
     }
 
     // Remove refresh token from user's tokens
-    const tokenHash = JWTUtils.hashToken(refreshToken);
-    user.refreshTokens = user.refreshTokens.filter(token => 
+    user.refreshTokens = user.refreshTokens.filter((token: string) => 
       !JWTUtils.verifyTokenHash(refreshToken, token)
     );
     await user.save();
@@ -243,7 +241,7 @@ export class AuthService {
    * Logout user from all devices
    */
   static async logoutAllDevices(userId: string): Promise<void> {
-    const user = await User.findById(userId);
+    const user = await (User as any).findById(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -257,7 +255,7 @@ export class AuthService {
    * Request password reset
    */
   static async requestPasswordReset(email: string): Promise<string> {
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await (User as any).findOne({ email: email.toLowerCase() });
     if (!user) {
       // Don't reveal if user exists or not
       return 'If an account with this email exists, a password reset link has been sent.';
@@ -279,7 +277,7 @@ export class AuthService {
   static async resetPassword(token: string, newPassword: string): Promise<void> {
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
     
-    const user = await User.findOne({
+    const user = await (User as any).findOne({
       passwordResetToken: hashedToken,
       passwordResetExpires: { $gt: new Date() }
     });
@@ -301,7 +299,7 @@ export class AuthService {
   static async verifyEmail(token: string): Promise<void> {
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
     
-    const user = await User.findOne({
+    const user = await (User as any).findOne({
       emailVerificationToken: hashedToken,
       emailVerificationExpires: { $gt: new Date() }
     });
@@ -321,7 +319,7 @@ export class AuthService {
    * Resend email verification
    */
   static async resendEmailVerification(email: string): Promise<string> {
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await (User as any).findOne({ email: email.toLowerCase() });
     if (!user) {
       return 'If an account with this email exists, a verification link has been sent.';
     }
@@ -344,14 +342,14 @@ export class AuthService {
    * Get user profile
    */
   static async getUserProfile(userId: string): Promise<IUser | null> {
-    return User.findById(userId);
+    return (User as any).findById(userId);
   }
 
   /**
    * Update user profile
    */
   static async updateUserProfile(userId: string, updates: Partial<IUser>): Promise<IUser> {
-    const user = await User.findById(userId);
+    const user = await (User as any).findById(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -369,7 +367,7 @@ export class AuthService {
    * Change password
    */
   static async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
-    const user = await User.findById(userId).select('+password');
+    const user = await (User as any).findById(userId).select('+password');
     if (!user) {
       throw new Error('User not found');
     }
@@ -389,7 +387,7 @@ export class AuthService {
    * Delete user account
    */
   static async deleteAccount(userId: string, password: string): Promise<void> {
-    const user = await User.findById(userId).select('+password');
+    const user = await (User as any).findById(userId).select('+password');
     if (!user) {
       throw new Error('User not found');
     }
@@ -401,7 +399,7 @@ export class AuthService {
     }
 
     // Delete user
-    await User.findByIdAndDelete(userId);
+      await (User as any).findByIdAndDelete(userId);
   }
 
   /**

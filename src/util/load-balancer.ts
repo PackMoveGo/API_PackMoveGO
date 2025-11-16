@@ -28,11 +28,11 @@ class LoadBalancer {
 
   constructor() {
     this.config = {
-      enabled: process.env.ENABLE_LOAD_BALANCING === 'true',
-      instanceId: process.env.INSTANCE_ID || `instance-${Date.now()}`,
-      totalInstances: parseInt(process.env.TOTAL_INSTANCES || '1', 10),
-      healthCheckInterval: parseInt(process.env.HEALTH_CHECK_INTERVAL || '30000', 10),
-      sessionStickiness: process.env.SESSION_STICKINESS === 'true',
+      enabled: process.env['ENABLE_LOAD_BALANCING'] === 'true',
+      instanceId: process.env['INSTANCE_ID'] || `instance-${Date.now()}`,
+      totalInstances: parseInt(process.env['TOTAL_INSTANCES'] || '1', 10),
+      healthCheckInterval: parseInt(process.env['HEALTH_CHECK_INTERVAL'] || '30000', 10),
+      sessionStickiness: process.env['SESSION_STICKINESS'] === 'true',
       stickySessions: new Map()
     };
 
@@ -112,7 +112,7 @@ class LoadBalancer {
 
     // Handle session stickiness
     if (this.config.sessionStickiness) {
-      const sessionId = req.headers['x-session-id'] as string || req.cookies?.sessionId;
+      const sessionId = req.headers['x-session-id'] as string || req.cookies?.['sessionId'];
       if (sessionId) {
         this.config.stickySessions.set(sessionId, this.config.instanceId);
       }

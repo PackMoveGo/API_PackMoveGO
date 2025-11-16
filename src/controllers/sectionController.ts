@@ -16,11 +16,12 @@ export const verifySections = async (req: Request, res: Response) => {
 
     // Validate request body
     if (!Array.isArray(sections) || !timestamp || !path) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Invalid request body',
         isValid: false
       });
+      return;
     }
 
     // Get expected sections for the current path
@@ -67,10 +68,11 @@ export const verifySections = async (req: Request, res: Response) => {
         receivedSections: sections
       }
     });
+    return;
 
   } catch (error) {
     console.error('Section verification error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Error verifying sections',
       isValid: false

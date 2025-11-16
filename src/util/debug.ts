@@ -2,7 +2,7 @@ class Debug {
   private enabled: boolean;
 
   constructor() {
-    this.enabled = process.env.NODE_ENV !== 'production';
+    this.enabled = process.env['NODE_ENV'] !== 'production';
   }
 
   log(...args: any[]) {
