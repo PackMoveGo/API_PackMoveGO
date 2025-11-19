@@ -70,11 +70,6 @@ app.use(cors({
 
 // Arcjet protection middleware (bot detection, rate limiting, shield)
 app.use(async (req, res, next) => {
-  // Skip Arcjet for Gateway's own health endpoint only (not proxied /health)
-  if(req.path==='/v0/health') {
-    return next();
-  }
-  
   // Skip Arcjet entirely in development mode
   if(config.NODE_ENV==='development') {
     console.log('🔓 Gateway - Arcjet DISABLED in development mode');
@@ -186,16 +181,7 @@ app.use((req, res, next) => {
   console.log('='.repeat(80) + '\n');
   }
   
-  // Skip auth ONLY for Gateway's own health endpoint (/v0/health)
-  // The /health endpoint will be proxied to Private API and requires API key
-  if(req.path==='/v0/health') {
-    if(config.NODE_ENV==='development') {
-    console.log(`>>> Skipping auth for Gateway health check: ${req.path}`);
-    }
-    return next();
-  }
-  
-  // Check for API key in headers
+  // Check for API key in headers - NO SKIPS, all endpoints protected
   const apiKey=req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
   
   if(config.NODE_ENV==='development') {
@@ -211,6 +197,7 @@ app.use((req, res, next) => {
       success: false,
       error: 'Unauthorized',
       message: 'API key required',
+      redirectUrl: config.UNAUTHORIZED_REDIRECT_URL,
       ip: req.ip,
       path: req.path,
       method: req.method,
@@ -238,13 +225,8 @@ app.use((req, res, next) => {
       userAgent: req.get('User-Agent')
     });
     
-    // Return 401 instead of redirecting in development
-    if(config.NODE_ENV==='development') {
+    // Return 401 JSON with redirect URL for frontend to handle
       return res.status(401).json(errorMsg);
-    }
-    
-    // Redirect to main website in production
-    return res.redirect(301, 'https://packmovego.com');
   }
   
   if(apiKey!==FRONTEND_API_KEY) {
@@ -252,6 +234,7 @@ app.use((req, res, next) => {
       success: false,
       error: 'Unauthorized',
       message: 'Invalid API key',
+      redirectUrl: config.UNAUTHORIZED_REDIRECT_URL,
       ip: req.ip,
       path: req.path,
       origin: req.get('Origin'),
@@ -266,19 +249,14 @@ app.use((req, res, next) => {
       origin: req.get('Origin')
     });
     
-    // Return 401 instead of redirecting in development
-    if(config.NODE_ENV==='development') {
+    // Return 401 JSON with redirect URL for frontend to handle
       return res.status(401).json(errorMsg);
-    }
-    
-    // Redirect to main website in production
-    return res.redirect(301, 'https://packmovego.com');
   }
   
   if(config.NODE_ENV==='development') {
   console.log('✅ Gateway - API key validated, passing to next middleware');
   }
-  next();
+  return next();
 });
 
 // Request logging middleware

@@ -30,14 +30,17 @@ const apiLimiter = rateLimit({
 
 // API Key validation middleware
 const validateAPIKey = (req: Request, res: Response, next: NextFunction) => {
+  // Import config to get redirect URL
+  const { config } = require('../../config/env');
+  
   // Skip API key validation if disabled
-  if (process.env['API_KEY_ENABLED'] !== 'true') {
+  if (!config.API_KEY_ENABLED) {
     return next();
   }
 
   const apiKey = req.headers['x-api-key'] as string;
-  const frontendKey = process.env['API_KEY_FRONTEND'];
-  const adminKey = process.env['API_KEY_ADMIN'];
+  const frontendKey = config.API_KEY_FRONTEND;
+  const adminKey = config.API_KEY_ADMIN;
 
   // Check if API key is provided
   if (!apiKey) {
@@ -45,6 +48,7 @@ const validateAPIKey = (req: Request, res: Response, next: NextFunction) => {
       success: false,
       message: 'API key required',
       error: 'Missing x-api-key header',
+      redirectUrl: config.UNAUTHORIZED_REDIRECT_URL,
       ip: req.ip,
       path: req.path,
       timestamp: new Date().toISOString()
@@ -52,8 +56,8 @@ const validateAPIKey = (req: Request, res: Response, next: NextFunction) => {
     
     console.error('🚫 API Key Missing:', JSON.stringify(errorMsg, null, 2));
     
-    // Redirect to main website
-    return res.redirect(301, 'https://packmovego.com');
+    // Return 401 JSON error with redirect URL for frontend to handle
+    return res.status(401).json(errorMsg);
   }
 
   // Validate API key
@@ -73,6 +77,7 @@ const validateAPIKey = (req: Request, res: Response, next: NextFunction) => {
     success: false,
     message: 'Invalid API key',
     error: 'Unauthorized access',
+    redirectUrl: config.UNAUTHORIZED_REDIRECT_URL,
     ip: req.ip,
     path: req.path,
     timestamp: new Date().toISOString()
@@ -80,8 +85,8 @@ const validateAPIKey = (req: Request, res: Response, next: NextFunction) => {
   
   console.error('🚫 Invalid API Key:', JSON.stringify(errorMsg, null, 2));
   
-  // Redirect to main website
-  return res.redirect(301, 'https://packmovego.com');
+  // Return 401 JSON error with redirect URL for frontend to handle
+  return res.status(401).json(errorMsg);
 };
 
 // Enhanced security headers configuration

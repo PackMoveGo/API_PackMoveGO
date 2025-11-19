@@ -2,9 +2,9 @@
   "contactInfo": {
     "title": "Get in Touch",
     "description": "Ready to start your stress-free move? Contact us today for a free quote and professional moving services.",
-    "mainPhone": "+1 (714) 555-0123",
+    "mainPhone": "Pending",
     "mainEmail": "info@packmovego.com",
-    "emergencyPhone": "+1 (714) 555-0124",
+    "emergencyPhone": "Pending",
     "website": "https://packmovego.com"
   },
   "officeLocations": [
@@ -13,13 +13,13 @@
       "name": "Main Office",
       "type": "Main Office",
       "address": {
-        "street": "1369 Adam's Ave",
-        "city": "Orange County",
+        "street": "12345 Business Center Drive",
+        "city": "Irvine",
         "state": "CA",
-        "zip": "92602",
-        "fullAddress": "1369 Adam's Ave, Orange County, CA 92602"
+        "zip": "92618",
+        "fullAddress": "12345 Business Center Drive, Irvine, CA 92618"
       },
-      "phone": "+1 (714) 555-0123",
+      "phone": "Pending",
       "email": "info@packmovego.com",
       "hours": {
         "monday": "8:00 AM - 6:00 PM",
@@ -43,8 +43,8 @@
       "title": "Phone Support",
       "description": "Speak directly with our moving experts",
       "icon": "📞",
-      "primary": "+1 (714) 555-0123",
-      "secondary": "+1 (714) 555-0124 (Emergency)",
+      "primary": "Pending",
+      "secondary": "Pending (Emergency)",
       "hours": "Mon-Fri: 8AM-6PM, Sat: 9AM-4PM",
       "color": "bg-blue-500"
     },
@@ -188,6 +188,6 @@
       "saturday": { "open": "9:00 AM", "close": "4:00 PM", "status": "open" },
       "sunday": { "open": "Closed", "close": "Closed", "status": "closed" }
     },
-    "emergency": "For emergency moves outside business hours, call our 24/7 emergency line: +1 (714) 555-0124"
+    "emergency": "For emergency moves outside business hours, call our emergency line: Pending"
   }
 } 

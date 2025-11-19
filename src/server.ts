@@ -159,18 +159,30 @@ app.use((_req: express.Request, _res: express.Response, next: express.NextFuncti
       return next();
     }
     
-    // No gateway header and not from Render internal network or localhost - redirect
-    console.log(`🚫 Server - No gateway header in production from ${clientIp}, redirecting`);
-    return _res.redirect(301, 'https://packmovego.com');
+    // No gateway header and not from Render internal network or localhost - return 401
+    console.log(`🚫 Server - No gateway header in production from ${clientIp}, returning 401`);
+    return _res.status(401).json({
+      success: false,
+      message: 'Unauthorized: Direct server access not allowed',
+      error: 'Must access through gateway',
+      redirectUrl: config.UNAUTHORIZED_REDIRECT_URL || 'https://packmovego.com',
+      timestamp: new Date().toISOString()
+    });
   }
   
   // Check if accessing server directly on port 3001 (development) or 8080 (production)
   const isDirectServerAccess=host.includes(':3001') || host.includes(':8080');
   
-  // If accessing server directly (not through gateway), redirect to packmovego.com
+  // If accessing server directly (not through gateway), return 401
   if(isDirectServerAccess && !hasGatewayHeader) {
-    console.log('🚫 Server - Direct access blocked, redirecting');
-    return _res.redirect(301, 'https://packmovego.com');
+    console.log('🚫 Server - Direct access blocked, returning 401');
+    return _res.status(401).json({
+      success: false,
+      message: 'Unauthorized: Direct server access not allowed',
+      error: 'Must access through gateway',
+      redirectUrl: config.UNAUTHORIZED_REDIRECT_URL || 'http://localhost:5001',
+      timestamp: new Date().toISOString()
+    });
   }
   
   next();

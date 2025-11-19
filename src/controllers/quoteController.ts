@@ -12,8 +12,22 @@ const SUBMISSION_COOLDOWN=3*24*60*60*1000; // 3 days in milliseconds
  */
 export const submitQuote=async (req: Request, res: Response): Promise<void> => {
   try {
-    const { fromZip, toZip, moveDate, rooms, firstName, lastName, phone, email, moveType }=req.body;
+    const { fromZip, toZip, moveDate, rooms, firstName, lastName, phone, email, serviceId, moveType }=req.body;
     const clientIp=req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
+    
+    // Log incoming data for debugging
+    consoleLogger.info('quote', 'Quote submission received', {
+      fromZip,
+      toZip,
+      moveDate,
+      rooms,
+      firstName,
+      lastName,
+      phone,
+      email,
+      serviceId,
+      ip: clientIp
+    });
     
     // Check IP rate limiting
     const lastSubmission=ipSubmissions.get(clientIp);
@@ -34,83 +48,153 @@ export const submitQuote=async (req: Request, res: Response): Promise<void> => {
     
     // Validation
     const errors: string[]=[];
-    if (!fromZip || !/^\d{5}$/.test(fromZip)) {
-      errors.push('Please provide a valid 5-digit origin zip code');
+    
+    // Service ID validation (if provided)
+    if (serviceId && typeof serviceId !== 'string') {
+      errors.push('Invalid service selection');
     }
-    if (!toZip || !/^\d{5}$/.test(toZip)) {
-      errors.push('Please provide a valid 5-digit destination zip code');
+    
+    // Zip code validation - must be exactly 5 digits, no letters or special characters
+    if (!fromZip || !/^\d{5}$/.test(String(fromZip).trim())) {
+      errors.push('Moving From Zip Code must be exactly 5 digits');
     }
+    if (!toZip || !/^\d{5}$/.test(String(toZip).trim())) {
+      errors.push('Moving To Zip Code must be exactly 5 digits');
+    }
+    
     if (!moveDate) {
       errors.push('Move date is required');
     }
-    if (!rooms) {
-      errors.push('Number of rooms is required');
+    
+    // Rooms validation - must be a number between 1 and 50
+    const roomsNum = typeof rooms === 'number' ? rooms : parseInt(String(rooms));
+    if (rooms === undefined || rooms === null || rooms === '' || isNaN(roomsNum) || roomsNum < 1 || roomsNum > 50) {
+      errors.push('Number of rooms must be between 1 and 50');
     }
-    if (!firstName || firstName.trim().length < 2) {
+    
+    if (!firstName || String(firstName).trim().length < 2) {
       errors.push('First name must be at least 2 characters');
     }
-    if (!lastName || lastName.trim().length < 2) {
+    if (!lastName || String(lastName).trim().length < 2) {
       errors.push('Last name must be at least 2 characters');
     }
-    if (!phone || !/^[\d\s\-\(\)\+]+$/.test(phone)) {
-      errors.push('Please provide a valid phone number');
+    
+    // Phone validation - must be 10 digits (formatted as (XXX) XXX-XXXX)
+    const phoneDigits = phone ? String(phone).replace(/\D/g, '') : '';
+    if (!phone || phoneDigits.length !== 10) {
+      errors.push('Phone number must be exactly 10 digits');
     }
-    if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+    
+    if (email && !/^\S+@\S+\.\S+$/.test(String(email))) {
       errors.push('Please provide a valid email address');
     }
     
     if (errors.length > 0) {
+      consoleLogger.warn('quote', 'Quote validation failed', { errors, data: req.body });
       res.status(400).json({
         success: false,
-        message: 'Validation failed',
+        message: `Validation failed: ${errors.join(', ')}`,
         errors
       });
       return;
     }
     
     // Create quote request
-    const quote=new Quote({
-      fromZip: fromZip.trim(),
-      toZip: toZip.trim(),
+    const quoteData = {
+      fromZip: fromZip?.toString().trim() || '',
+      toZip: toZip?.toString().trim() || '',
       moveDate: new Date(moveDate),
-      rooms: rooms.trim(),
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      phone: phone.trim(),
-      email: email?.trim().toLowerCase(),
-      moveType: moveType || 'residential',
+      rooms: roomsNum.toString(),
+      firstName: firstName?.toString().trim() || '',
+      lastName: lastName?.toString().trim() || '',
+      phone: phoneDigits, // Store only digits
+      email: email?.toString().trim().toLowerCase() || undefined,
+      moveType: serviceId || moveType || 'residential',
       status: 'new',
       source: 'website',
       ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
       userAgent: req.headers['user-agent']
-    });
+    };
+
+    let savedQuote;
+    let quoteId;
     
-    await quote.save();
+    try {
+      // Try to save to MongoDB
+      const quote = new Quote(quoteData);
+      savedQuote = await quote.save();
+      quoteId = savedQuote._id;
+      
+      consoleLogger.info('quote', 'Quote saved to MongoDB', {
+        quoteId,
+        fullName: `${quoteData.firstName} ${quoteData.lastName}`
+      });
+    } catch (dbError) {
+      // MongoDB save failed - fallback to JSON file
+      consoleLogger.warn('quote', 'MongoDB save failed, using JSON fallback', {
+        error: dbError instanceof Error ? dbError.message : 'Unknown error'
+      });
+      
+      // Save to JSON file as fallback
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const quotesDir = path.join(process.cwd(), 'src', 'database');
+      const quotesFile = path.join(quotesDir, 'quotes.json');
+      
+      try {
+        // Read existing quotes
+        let quotes = [];
+        try {
+          const data = await fs.readFile(quotesFile, 'utf-8');
+          quotes = JSON.parse(data);
+        } catch {
+          // File doesn't exist, create new array
+          quotes = [];
+        }
+        
+        // Generate a simple ID
+        quoteId = `quote_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Add new quote
+        const newQuote = {
+          ...quoteData,
+          _id: quoteId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        quotes.push(newQuote);
+        
+        // Save to file
+        await fs.writeFile(quotesFile, JSON.stringify(quotes, null, 2), 'utf-8');
+        
+        consoleLogger.info('quote', 'Quote saved to JSON file', {
+          quoteId,
+          fullName: `${quoteData.firstName} ${quoteData.lastName}`
+        });
+      } catch (fileError) {
+        consoleLogger.error('quote', 'Failed to save to JSON fallback', fileError);
+        throw new Error('Failed to save quote to both MongoDB and JSON file');
+      }
+    }
     
     // Update IP rate limiting
     ipSubmissions.set(clientIp, Date.now());
-    
-    consoleLogger.info('quote', 'New quote request submitted', {
-      quoteId: quote._id,
-      fullName: quote.fullName,
-      phone: quote.phone,
-      ip: clientIp
-    });
     
     res.status(201).json({
       success: true,
       message: 'Thank you! Your quote request has been submitted. We\'ll contact you soon.',
       data: {
-        id: quote._id,
-        fullName: quote.fullName,
-        moveDate: quote.moveDate
+        id: quoteId,
+        fullName: `${quoteData.firstName} ${quoteData.lastName}`,
+        moveDate: quoteData.moveDate
       }
     });
   } catch (error) {
     consoleLogger.error('quote', 'Failed to submit quote request', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to submit quote request',
+      message: 'Failed to submit quote request. Please try again or contact us directly.',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }

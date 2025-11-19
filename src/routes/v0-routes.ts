@@ -2,11 +2,12 @@ import { Router } from 'express';
 // import { getDataFile } from '../controllers/dataController'; // Unused import
 import path from 'path';
 import fs from 'fs';
+import { validateAPIKey } from '../middlewares/security';
 
 const router = Router();
 
 // Specific handler for /v0/health endpoint
-router.get('/health', (req, res) => {
+router.get('/health', validateAPIKey, (req, res) => {
   // Set CORS headers
   const origin = req.headers.origin;
   if (origin) {
@@ -40,7 +41,7 @@ router.options('/health', (req, res) => {
 });
 
 // Specific handler for /nav/footer endpoint
-router.get('/nav/footer', (req, res) => {
+router.get('/nav/footer', validateAPIKey, (req, res) => {
   const origin=req.headers.origin;
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -80,7 +81,7 @@ router.get('/nav/footer', (req, res) => {
 });
 
 // Specific handler for /recentMoves/total endpoint
-router.get('/recentMoves/total', (req, res) => {
+router.get('/recentMoves/total', validateAPIKey, (req, res) => {
   // Set CORS headers
   const origin=req.headers.origin;
   if (origin) {
@@ -117,9 +118,67 @@ router.get('/recentMoves/total', (req, res) => {
   });
 });
 
+// Specific handler for /v0/services/:serviceId endpoint
+router.get('/services/:serviceId', validateAPIKey, (req, res) => {
+  const { serviceId } = req.params;
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  
+  const dataDir = path.join(__dirname, '../database');
+  const filePath = path.join(dataDir, 'services.json');
+  
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Services data not found',
+        error: 'The services data file could not be loaded',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    try {
+      const parsedData = JSON.parse(data);
+      const services = parsedData.services || parsedData || [];
+      
+      // Find service by ID (try both id and _id fields, and also try matching by slug/name/title)
+      const service = serviceId ? services.find((s: any) => {
+        const idMatch = s.id === serviceId || s._id === serviceId;
+        const slugMatch = s.slug === serviceId || s.slug === serviceId.toLowerCase();
+        const nameMatch = s.name && s.name.toLowerCase().replace(/\s+/g, '-') === serviceId.toLowerCase();
+        const titleMatch = s.title && s.title.toLowerCase().replace(/\s+/g, '-') === serviceId.toLowerCase();
+        return idMatch || slugMatch || nameMatch || titleMatch;
+      }) : undefined;
+      
+      if (!service) {
+        return res.status(404).json({ 
+          success: false,
+          message: 'Service not found',
+          error: `Service with ID '${serviceId}' does not exist`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      return res.status(200).json({ service });
+    } catch (e) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Server error',
+        error: 'Invalid JSON format in services data file',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+});
+
 // Generic handler for all /v0/* endpoints
 // @ts-ignore - Callback-based async pattern, response sent in callback
-router.get('/:name', (req, res) => {
+router.get('/:name', validateAPIKey, (req, res) => {
   // Extract the name from the URL (e.g., /v0/nav -> nav)
   const { name } = req.params;
   
@@ -206,6 +265,18 @@ router.get('/:name', (req, res) => {
 // Handle OPTIONS for /recentMoves/total endpoint
 router.options('/recentMoves/total', (req, res) => {
   const origin=req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-api-key,X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,HEAD');
+  res.status(200).end();
+});
+
+// Handle OPTIONS for /v0/services/:serviceId endpoint
+router.options('/services/:serviceId', (req, res) => {
+  const origin = req.headers.origin;
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }

@@ -36,5 +36,27 @@
       "path": "/contact",
       "label": "Contact"
     }
+  ],
+  "footerNav": [
+    {
+      "path": "/blog",
+      "label": "Blog"
+    },
+    {
+      "path": "/supplies",
+      "label": "Supplies"
+    },
+    {
+      "path": "/about",
+      "label": "About Us"
+    },
+    {
+      "path": "/services",
+      "label": "Services"
+    },
+    {
+      "path": "/refer",
+      "label": "Refer Friends"
+    }
   ]
 } 

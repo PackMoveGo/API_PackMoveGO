@@ -52,6 +52,7 @@ export const config = {
   ADMIN_PASSWORD: process.env['ADMIN_PASSWORD'] || '',
   JWT_SECRET: process.env['JWT_SECRET'] || '',
   JWT_EXPIRES_IN: process.env['JWT_EXPIRES_IN'] || '24h',
+  UNAUTHORIZED_REDIRECT_URL: process.env['UNAUTHORIZED_REDIRECT_URL'] || 'http://localhost:5001',
   
   // Arcjet
   ARCJET_KEY: process.env['ARCJET_KEY'] || '',
