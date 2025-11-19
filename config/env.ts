@@ -166,13 +166,17 @@ export const config = {
   HASH: process.env['HASH'] || '',
 };
 
-// Validation
+// Validation - conditional based on service type
 const requiredVars = [
   'JWT_SECRET',
-  'MONGODB_URI',
   'API_KEY_FRONTEND',
   'ARCJET_KEY',
 ];
+
+// MONGODB_URI is only required for private API service, not gateway
+if (config.SERVICE_TYPE !== 'gateway') {
+  requiredVars.push('MONGODB_URI');
+}
 
 const missingVars = requiredVars.filter(key => !config[key as keyof typeof config]);
 
