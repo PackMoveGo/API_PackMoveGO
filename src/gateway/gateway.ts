@@ -69,7 +69,7 @@ app.use(cors({
 }));
 
 // Health check endpoint for Render (MUST be before ALL middleware including Arcjet and API key)
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   // Always return 200 OK for health checks - no authentication required
   res.status(200).json({
     status: 'ok',
