@@ -185,6 +185,30 @@ if (missingVars.length > 0) {
   process.exit(1);
 }
 
+// Additional validation for JWT secrets - must be at least 32 characters for private API
+if (config.SERVICE_TYPE !== 'gateway') {
+  // Check if JWT_SECRET is long enough (used as fallback for JWT_ACCESS_SECRET and JWT_REFRESH_SECRET)
+  if (config.JWT_SECRET && config.JWT_SECRET.length < 32) {
+    console.error(`❌ JWT_SECRET must be at least 32 characters long (current length: ${config.JWT_SECRET.length})`);
+    console.error(`   If JWT_ACCESS_SECRET and JWT_REFRESH_SECRET are not set, JWT_SECRET is used as fallback.`);
+    process.exit(1);
+  }
+  
+  // If JWT_ACCESS_SECRET is set, it must be at least 32 characters
+  const jwtAccessSecret = process.env['JWT_ACCESS_SECRET'] || '';
+  if (jwtAccessSecret && jwtAccessSecret.length < 32) {
+    console.error(`❌ JWT_ACCESS_SECRET must be at least 32 characters long (current length: ${jwtAccessSecret.length})`);
+    process.exit(1);
+  }
+  
+  // If JWT_REFRESH_SECRET is set, it must be at least 32 characters
+  const jwtRefreshSecret = process.env['JWT_REFRESH_SECRET'] || '';
+  if (jwtRefreshSecret && jwtRefreshSecret.length < 32) {
+    console.error(`❌ JWT_REFRESH_SECRET must be at least 32 characters long (current length: ${jwtRefreshSecret.length})`);
+    process.exit(1);
+  }
+}
+
 // Helper class for backward compatibility
 class EnvironmentLoader {
   getConfig() {
