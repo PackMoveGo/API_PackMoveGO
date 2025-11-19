@@ -68,32 +68,22 @@ app.use(cors({
   allowedHeaders: config.CORS_ALLOWED_HEADERS.split(',')
 }));
 
-// Health check endpoint for Render (must be before Arcjet and API key middleware)
+// Health check endpoint for Render (MUST be before ALL middleware including Arcjet and API key)
 app.get('/health', (req, res) => {
-  const isRenderHealthCheck = req.headers['render-health-check'] === '1' || req.get('User-Agent') === 'Render/1.0';
-  
-  if (isRenderHealthCheck) {
-    return res.status(200).json({
-      status: 'ok',
-      service: 'gateway',
-      timestamp: new Date().toISOString(),
-      health: 'healthy'
-    });
-  }
-  
-  // For non-Render health checks, still return OK but log it
+  // Always return 200 OK for health checks - no authentication required
   res.status(200).json({
     status: 'ok',
     service: 'gateway',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    health: 'healthy',
+    version: '1.0.2'
   });
 });
 
 // Arcjet protection middleware (bot detection, rate limiting, shield)
 app.use(async (req, res, next) => {
-  // Skip Arcjet for Render health checks
-  const isRenderHealthCheck = req.path === '/health' && (req.headers['render-health-check'] === '1' || req.get('User-Agent') === 'Render/1.0');
-  if (isRenderHealthCheck) {
+  // Skip Arcjet for health checks (Render and others)
+  if (req.path === '/health' || req.path === '/health/') {
     return next();
   }
   
@@ -194,9 +184,8 @@ app.use(async (req, res, next) => {
 const FRONTEND_API_KEY=config.API_KEY_FRONTEND || 'pmg_frontend_live_sk_a7f8e2d9c1b4x6m9p3q8r5t2w7y1z4a6';
 
 app.use((req, res, next) => {
-  // Bypass API key check for Render health checks
-  const isRenderHealthCheck = req.path === '/health' && (req.headers['render-health-check'] === '1' || req.get('User-Agent') === 'Render/1.0');
-  if (isRenderHealthCheck) {
+  // Bypass API key check for health checks (Render and others)
+  if (req.path === '/health' || req.path === '/health/') {
     return next();
   }
   
