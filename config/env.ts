@@ -182,6 +182,26 @@ const missingVars = requiredVars.filter(key => !config[key as keyof typeof confi
 
 if (missingVars.length > 0) {
   console.error(`❌ Missing required environment variables: ${missingVars.join(', ')}`);
+  console.error('');
+  console.error('📋 Please set these in Render Dashboard:');
+  console.error('   Settings → Environment → Add Environment Variable');
+  console.error('');
+  missingVars.forEach(key => {
+    console.error(`   Key: ${key}`);
+    if (key === 'JWT_SECRET') {
+      console.error(`   Value: [Generate a secure random string, at least 32 characters]`);
+    } else if (key === 'MONGODB_URI') {
+      console.error(`   Value: [Your MongoDB connection string]`);
+    } else if (key === 'API_KEY_FRONTEND') {
+      console.error(`   Value: [Your frontend API key]`);
+    } else if (key === 'ARCJET_KEY') {
+      console.error(`   Value: [Your Arcjet API key]`);
+    } else {
+      console.error(`   Value: [Set appropriate value]`);
+    }
+    console.error('');
+  });
+  console.error('💡 For JWT_SECRET, generate one using: openssl rand -hex 32');
   process.exit(1);
 }
 
